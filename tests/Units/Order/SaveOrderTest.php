@@ -12,7 +12,7 @@ use App\Application\Exceptions\InvalidCommandException;
 use App\Application\Exceptions\NotFoundFruitReferenceException;
 use App\Application\Exceptions\NotFoundOrderException;
 use App\Application\Exceptions\NotFountOrderElementException;
-use App\Application\Exceptions\UnavailableFruitQuantity;
+use App\Application\Exceptions\UnavailableFruitQuantityException;
 use App\Application\Services\GetFruitByReferenceService;
 use App\Application\Services\VerifyIfThereIsEnoughFruitInStockService;
 use App\Application\UseCases\SaveOrderHandler;
@@ -48,7 +48,7 @@ class SaveOrderTest extends TestCase
         $existingOrder = $this->buildOrderSUT();
         $command = new SaveOrderCommand(
             $existingOrder->orderElements()[0]->reference()->value(),
-            5
+            2
         );
 
         //When
@@ -70,7 +70,7 @@ class SaveOrderTest extends TestCase
 
         $command = new SaveOrderCommand(
             $existingOrder->orderElements()[0]->reference()->value(),
-            4
+            2
         );
         $command->orderId = $existingOrder->id()->value();
 
@@ -157,7 +157,7 @@ class SaveOrderTest extends TestCase
         $command->orderId = $existingOrder->id()->value();
         $handler = $this->createSaveOrderHandler();
 
-        $this->expectException(UnavailableFruitQuantity::class);
+        $this->expectException(UnavailableFruitQuantityException::class);
         $handler->handle($command);
     }
 
@@ -172,7 +172,7 @@ class SaveOrderTest extends TestCase
         $existingOrder = $this->buildOrderSUT();
         $command = new SaveOrderCommand(
             $existingOrder->orderElements()[0]->reference()->value(),
-            10
+            2
         );
         $command->orderId = 'azeaze';
 

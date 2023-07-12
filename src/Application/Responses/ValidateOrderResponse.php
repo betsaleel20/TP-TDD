@@ -8,5 +8,7 @@ class ValidateOrderResponse
     public bool $isValidated = false;
     public bool $isDestroyed = false;
     public ?string $orderId = null;
+    public ?int $paymentMethod = null;
+    public ?int $currency = null;
 
 }

@@ -61,6 +61,19 @@ class InMemoryFruitRepository implements FruitRepository
     }
 
     /**
+     * @param FruitReference $reference
+     * @return Fruit[]|null
+     */
+    public function allByReference(FruitReference $reference): ?array
+    {
+        $fruitsByReference = array_values(array_filter(
+            $this->fruits,
+            fn(Fruit $f)=>$f->reference()->value() === $reference->value()
+        ));
+        return count($fruitsByReference) > 0 ? $fruitsByReference : null;
+    }
+
+    /**
      * @return Fruit[]
      */
     public function fruits(): array
@@ -68,5 +81,18 @@ class InMemoryFruitRepository implements FruitRepository
         return $this->fruits;
     }
 
+    /**
+     * @param FruitReference $reference
+     * @param OrderedQuantity $quantity
+     * @return void
+     */
+    public function updateFruitStatusToSold(Fruit $fruit): void
+    {
+        $fruit->changeStatus(FruitStatus::SOLD);
 
+        $this->fruits = array_values(array_filter(
+            $this->fruits,
+            fn(Fruit $f)=>$f->id()->value() === $fruit->id()->value()
+        ));
+    }
 }

@@ -37,11 +37,12 @@ class Fruit
     }
 
     /**
-     * @return FruitStatus
+     * @param FruitStatus $status
+     * @return void
      */
-    public function status(): FruitStatus
+    public function changeStatus(FruitStatus $status): void
     {
-        return $this->status;
+        $this->status = $status;
     }
 
 

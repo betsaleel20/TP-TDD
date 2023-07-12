@@ -14,6 +14,9 @@ use App\Persistence\Repositories\Fruit\InMemoryFruitRepository;
 
 class Order
 {
+    private ?PaymentMethod $paymentMethod = null;
+    private ?Currency $currency = null;
+
 
     /**
      * @var OrderElement[]
@@ -53,6 +56,24 @@ class Order
     {
         return $this->id;
     }
+
+    /**
+     * @param PaymentMethod $paymentMethod
+     */
+    public function changePaymentMethod(PaymentMethod $paymentMethod): void
+    {
+        $this->paymentMethod = $paymentMethod;
+    }
+
+    /**
+     * @param Currency $currency
+     */
+    public function changeCurrency(Currency $currency): void
+    {
+        $this->currency = $currency;
+    }
+
+
 
     /**
      * @param OrderElement $orderElement
@@ -113,7 +134,7 @@ class Order
         return $this->status;
     }
 
-    private function changeStatus(OrderStatus $status): void
+    public function changeStatus(OrderStatus $status): void
     {
         $this->status = $status;
     }
@@ -131,9 +152,29 @@ class Order
         return count($foundElement) > 0 ? $foundElement[0] : null;
     }
 
+    /**
+     * @param OrderElement $orderElement
+     * @return void
+     */
     public function updateOrderedElementQuantity(OrderElement $orderElement):void
     {
         $orderElement->changeQuantity($orderElement->quantity());
+    }
+
+    /**
+     * @return PaymentMethod
+     */
+    public function paymentMethod():PaymentMethod
+    {
+        return $this->paymentMethod;
+    }
+
+    /**
+     * @return Currency
+     */
+    public function currency():Currency
+    {
+        return $this->currency;
     }
 
 

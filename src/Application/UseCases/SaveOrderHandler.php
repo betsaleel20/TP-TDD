@@ -11,7 +11,7 @@ use App\Application\Enums\OrderAction;
 use App\Application\Exceptions\NotFoundFruitReferenceException;
 use App\Application\Exceptions\NotFoundOrderException;
 use App\Application\Exceptions\NotFountOrderElementException;
-use App\Application\Exceptions\UnavailableFruitQuantity;
+use App\Application\Exceptions\UnavailableFruitQuantityException;
 use App\Application\Responses\SaveOrderResponse;
 use App\Application\Services\GetFruitByReferenceService;
 use App\Application\Services\VerifyIfThereIsEnoughFruitInStockService;
