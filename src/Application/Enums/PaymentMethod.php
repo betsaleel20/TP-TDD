@@ -2,6 +2,8 @@
 
 namespace App\Application\Enums;
 
+use App\Application\Exceptions\InvalidArgumentsException;
+
 enum PaymentMethod :int
 {
     case MASTERCARD = 1;
@@ -15,7 +17,7 @@ enum PaymentMethod :int
     {
         $self = self::tryFrom($paymentMethod);
         if (!$self) {
-            throw new \InvalidArgumentException('Ce mode de paiement n\'est pas pris en charge par le système');
+            throw new InvalidArgumentsException('Ce mode de paiement n\'est pas pris en charge par le système');
         }
         return $self;
     }

@@ -7,7 +7,6 @@ use App\Application\Entities\Fruit\FruitRepository;
 use App\Application\Enums\FruitStatus;
 use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Id;
-use App\Application\ValueObjects\OrderedQuantity;
 
 class InMemoryFruitRepository implements FruitRepository
 {
@@ -68,7 +67,7 @@ class InMemoryFruitRepository implements FruitRepository
     {
         $fruitsByReference = array_values(array_filter(
             $this->fruits,
-            fn(Fruit $f)=>$f->reference()->value() === $reference->value()
+            fn(Fruit $f)=>$f->reference()->value() === $reference->value() && $f->status()->value != FruitStatus::OCCUPIED->value
         ));
         return count($fruitsByReference) > 0 ? $fruitsByReference : null;
     }
@@ -82,17 +81,25 @@ class InMemoryFruitRepository implements FruitRepository
     }
 
     /**
-     * @param FruitReference $reference
-     * @param OrderedQuantity $quantity
+     * @param Fruit $fruit
      * @return void
      */
     public function updateFruitStatusToSold(Fruit $fruit): void
     {
         $fruit->changeStatus(FruitStatus::SOLD);
+    }
 
-        $this->fruits = array_values(array_filter(
-            $this->fruits,
-            fn(Fruit $f)=>$f->id()->value() === $fruit->id()->value()
-        ));
+    /**
+     * @param Fruit $fruit
+     * @return void
+     */
+    public function saveUpdatedFruit(Fruit $fruit, $position):void
+    {
+        $this->fruits[$position] =$fruit;
+    }
+
+    public function updateFruitStatusToOccupied($fruit):void
+    {
+        $fruit->changeStatus(FruitStatus::OCCUPIED);
     }
 }

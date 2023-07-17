@@ -2,30 +2,33 @@
 
 namespace App\Application\Services;
 
-use App\Application\Entities\Fruit\Fruit;
 use App\Application\Entities\Fruit\FruitRepository;
-use App\Application\Exceptions\UnavailableFruitQuantityException;
-use App\Application\ValueObjects\OrderElement;
+use App\Application\ValueObjects\FruitReference;
+use App\Application\ValueObjects\NeededQuantity;
 
-class VerifyIfThereIsEnoughFruitInStockService
+readonly class VerifyIfThereIsEnoughFruitInStockService
 {
 
+    private int $minimalStockQuantity;
     public function __construct(private FruitRepository $repository)
     {
+        $this->minimalStockQuantity = 5;
     }
 
-    public function execute(OrderElement $orderElement):void
+    /**
+     * @param FruitReference $fruitReference
+     * @param NeededQuantity $neededQuantity
+     * @return bool
+     */
+    public function execute(FruitReference $fruitReference, NeededQuantity $neededQuantity):bool
     {
-        $fruitInStock = $this->repository->fruits();
-        $availableFruitsWithOrderedReference = array_values(array_filter(
-            $fruitInStock,
-            fn(Fruit $f)=>$f->reference()->value() === $orderElement->reference()->value()
-        ));
+        $availableFruitsInConcernedReferences = $this->repository->allByReference($fruitReference);
 
-        $minimalStockQuantity = 5;
-        if(count($availableFruitsWithOrderedReference) < ($orderElement->quantity()->value() + $minimalStockQuantity)){
-            throw new UnavailableFruitQuantityException('La quatité de fruit pour la référence <'.$orderElement->reference()->value().'> est insuffisante');
+        if(count($availableFruitsInConcernedReferences) < ($neededQuantity->value() + $this->minimalStockQuantity))
+        {
+            return false;
         }
+        return true;
     }
 
 }

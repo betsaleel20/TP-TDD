@@ -3,10 +3,10 @@
 namespace App\Application\Entities\Fruit;
 
 use App\Application\ValueObjects\FruitReference;
-use App\Application\ValueObjects\OrderedQuantity;
 
 interface FruitRepository
 {
+    public function saveUpdatedFruit(Fruit $fruit, int $position);
     /**
      * @param FruitReference $fruitRef
      * @return Fruit|null
@@ -24,4 +24,11 @@ interface FruitRepository
      * @return Fruit[]|null
      */
     public function allByReference(FruitReference $reference):?array ;
+
+    /**
+     * @param Fruit $fruit
+     * @return void
+     */
+    public function updateFruitStatusToOccupied(Fruit $fruit):void;
+
 }

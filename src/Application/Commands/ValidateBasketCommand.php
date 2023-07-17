@@ -4,10 +4,12 @@ namespace App\Application\Commands;
 
 use App\Application\ValueObjects\Id;
 
-class ValidateOrderCommand
+class ValidateBasketCommand
 {
     /**
-     * @param Id|null $id
+     * @param string $id
+     * @param int $paymentMethod
+     * @param int $currency
      */
     public function __construct(
         public string        $id,
