@@ -2,15 +2,16 @@
 
 namespace App\Application\Commands;
 
-use App\Application\Enums\OrderAction;
+use App\Application\Enums\BasketAction;
 use App\Application\Exceptions\InvalidCommandException;
 use App\Application\ValueObjects\NeededQuantity;
 
 class SaveBasketCommand
 {
 
-    public ?string $orderId;
-    public ?int $orderedQuantity;
+    public ?string $basketId;
+    public ?int $neededQuantity;
+    public ?float $price;
 
     /**
      * @param string $fruitRef
@@ -21,21 +22,22 @@ class SaveBasketCommand
         readonly public int $action
     )
     {
-        $this->orderedQuantity = null;
-        $this->orderId = null;
+        $this->price = null;
+        $this->neededQuantity = null;
+        $this->basketId = null;
     }
 
-    public static function create( string $fruitRef, int $action, ?int $orderedQuantity = null):self
+    public static function create( string $fruitRef,int $action, ?int $neededQuantity = null):self
     {
-        $saveOrderCommand = new self( fruitRef:$fruitRef,action: $action);
-        $saveOrderCommand->orderedQuantity = $orderedQuantity;
-        $saveOrderCommand->validate();
-        return $saveOrderCommand;
+        $saveBasketCommand = new self( fruitRef:$fruitRef,action: $action);
+        $saveBasketCommand->neededQuantity = $neededQuantity;
+        $saveBasketCommand->validate();
+        return $saveBasketCommand;
     }
 
     private function validate():void
     {
-        if( !$this->orderedQuantity && $this->action !== OrderAction::REMOVE_FROM_ORDER->value )
+        if( !$this->neededQuantity && $this->action !== BasketAction::REMOVE_FROM_BASKET->value )
         {
             throw new InvalidCommandException(
                 "La quantité commandée doit etre supérieure à zéro 

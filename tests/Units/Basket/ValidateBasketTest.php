@@ -3,26 +3,24 @@
 namespace Tests\Units\Basket;
 
 use App\Application\Commands\ValidateBasketCommand;
-use App\Application\Entities\Fruit\FruitRepository;
 use App\Application\Entities\Basket\Basket;
 use App\Application\Entities\Basket\BasketRepository;
-use App\Application\Entities\Order\OrderRepository;
+use App\Application\Entities\Fruit\FruitRepository;
+use App\Application\Enums\BasketAction;
 use App\Application\Enums\Currency;
 use App\Application\Enums\PaymentMethod;
 use App\Application\Exceptions\InvalidArgumentsException;
-use App\Application\Exceptions\NotFoundFruitReferenceException;
 use App\Application\Exceptions\NotFoundBasketException;
+use App\Application\Exceptions\NotFoundFruitReferenceException;
+use App\Application\Exceptions\NotFountElementInBasketException;
 use App\Application\Exceptions\UnavailableFruitQuantityException;
-use App\Application\Services\ChangeFruitsStatusOfValidatedBasketToSoldService;
-use App\Application\Services\GetSoldFruitsService;
-use App\Application\Services\VerifyIfFruitReferenceExistService;
-use App\Application\Services\VerifyIfThereIsEnoughFruitInStockService;
-use App\Application\UseCases\ValidateBasketHandler;
+use App\Application\Responses\ValidateBasketResponse;
+use App\Application\UseCases\Basket\ValidateBasketHandler;
+use App\Application\ValueObjects\BasketElement;
 use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\NeededQuantity;
-use App\Application\ValueObjects\BasketElement;
-use App\Persistence\Repositories\Fruit\InMemoryFruitRepository;
 use App\Persistence\Repositories\Basket\InMemoryBasketRepository;
+use App\Persistence\Repositories\Fruit\InMemoryFruitRepository;
 use PHPUnit\Framework\TestCase;
 
 class ValidateBasketTest extends TestCase
@@ -41,16 +39,12 @@ class ValidateBasketTest extends TestCase
     /**
      * @return void
      * @throws NotFoundBasketException
+     * @throws NotFountElementInBasketException
      */
     public function test_can_validate_basket()
     {
         //given
-        $element = new BasketElement(
-            reference:          new FruitReference('Ref01'),
-            orderedQuantity:    new NeededQuantity(3)
-        );
-        $basket = Basket::create($element);
-        $this->basketRepository->save($basket);
+        $basket = $this->buildBasketSUT();
         $command = new ValidateBasketCommand(
             id:             $basket->id()->value(),
             paymentMethod:  PaymentMethod::VISA->value,
@@ -58,12 +52,11 @@ class ValidateBasketTest extends TestCase
         );
 
         //When
-        $handler = $this->buildBasketHandler();
-        $response = $handler->handle($command);
+        $response = $this->validateBasket($command);
 
         //then
         $this->assertTrue($response->isValidated);
-        $this->assertNotNull($response->orderId);
+        $this->assertEquals($response->isValidated, $basket->status()->value);
         $this->assertNotNull($basket->paymentMethod()->value);
         $this->assertNotNull($basket->currency()->value);
     }
@@ -71,22 +64,25 @@ class ValidateBasketTest extends TestCase
     /**
      * @return void
      * @throws NotFoundBasketException
+     * @throws NotFountElementInBasketException
      */
     public function test_can_throw_not_found_basket_exception()
     {
-        $element = new BasketElement(new FruitReference('Ref01'), new NeededQuantity(3));
-        $order = Basket::create($element);
-        $this->basketRepository->save($order);
+        $element = new BasketElement(new FruitReference('Ref01', 1000));
+        $element->neededQuantity = new NeededQuantity(3);
+        $basket = Basket::create(
+            newBasketElement: $element,
+            action: BasketAction::ADD_TO_BASKET
+        );
+        $this->basketRepository->save($basket);
         $command = new ValidateBasketCommand(
             id:20,
             paymentMethod: 1,
             currency:2
         );
 
-        $handler = $this->buildBasketHandler();
-
         $this->expectException(NotFoundBasketException::class);
-        $handler->handle($command);
+        $this->validateBasket($command);
     }
 
     /**
@@ -95,16 +91,17 @@ class ValidateBasketTest extends TestCase
      */
     public function test_can_throw_invalid_arguments_exception_when_payment_method_is_invalid()
     {
-        $element = new BasketElement(new FruitReference('Ref01'), new NeededQuantity(3));
-        $order = Basket::create($element);
-        $this->basketRepository->save($order);
+        $element = new BasketElement(new FruitReference('Ref01', 1000));
+        $element->neededQuantity = new NeededQuantity(3);
+        $basket = Basket::create($element);
+        $this->basketRepository->save($basket);
         $command = new ValidateBasketCommand(
-            id:$order->id()->value(),
+            id:$basket->id()->value(),
             paymentMethod: 101,
             currency:1
         );
 
-        $handler = $this->buildBasketHandler();
+        $handler = $this->validateBasket();
 
         $this->expectException(InvalidArgumentsException::class);
         $handler->handle($command);
@@ -116,16 +113,17 @@ class ValidateBasketTest extends TestCase
      */
     public function test_can_throw_invalid_arguments_exception_when_currency_is_invalid()
     {
-        $element1 = new BasketElement(new FruitReference('Ref01'), new NeededQuantity(3));
-        $order = Basket::create($element1);
-        $this->basketRepository->save($order);
+        $element1 = new BasketElement(new FruitReference('Ref01',1000));
+        $element1->neededQuantity = new NeededQuantity(3);
+        $basket = Basket::create($element1);
+        $this->basketRepository->save($basket);
         $command = new ValidateBasketCommand(
-            id:$order->id()->value(),
+            id:$basket->id()->value(),
             paymentMethod: PaymentMethod::VISA->value,
             currency:10
         );
 
-        $handler = $this->buildBasketHandler();
+        $handler = $this->validateBasket();
         $this->expectException(InvalidArgumentsException::class);
         $handler->handle($command);
     }
@@ -133,19 +131,23 @@ class ValidateBasketTest extends TestCase
     /**
      * @return void
      * @throws NotFoundBasketException
+     * @throws NotFountElementInBasketException
      */
     public function test_can_throw_not_found_reference_exception()
     {
-        $element1 = new BasketElement(new FruitReference('undefinedRef'), new NeededQuantity(3));
-        $order = Basket::create($element1);
-        $this->basketRepository->save($order);
+        $element1 = new BasketElement(new FruitReference('fakeRef', 101));
+        $element1->neededQuantity = new NeededQuantity(3);
+        $basket = Basket::create(
+            $element1
+        );
+        $this->basketRepository->save($basket);
         $command = new ValidateBasketCommand(
-            id:$order->id()->value(),
+            id:$basket->id()->value(),
             paymentMethod: PaymentMethod::VISA->value,
             currency:Currency::DOLLAR->value
         );
 
-        $handler = $this->buildBasketHandler();
+        $handler = $this->validateBasket();
         $this->expectException(NotFoundFruitReferenceException::class);
         $handler->handle($command);
     }
@@ -156,15 +158,14 @@ class ValidateBasketTest extends TestCase
      */
     public function test_can_throw_unavailable_fruit_quantity_in_stock_exception()
     {
-        $basketElement1 = new BasketElement(
-            new FruitReference('Ref01'),
-            new NeededQuantity(30)
-        );
+
+        $basketElement1 = new BasketElement(new FruitReference('Ref01',1000));
+        $basketElement1->neededQuantity = new NeededQuantity(30);
+
         $basket = Basket::create($basketElement1);
-        $basketElement2 = new BasketElement(
-            reference: new FruitReference('Ref02'),
-            orderedQuantity:  new NeededQuantity(3)
-        );
+        $basketElement2 = new BasketElement(new FruitReference('Ref02', 2000));
+        $basketElement2->neededQuantity = new NeededQuantity(3);
+
         $basket->addElementToBasket($basketElement2);
         $this->basketRepository->save($basket);
         $command = new ValidateBasketCommand(
@@ -173,21 +174,43 @@ class ValidateBasketTest extends TestCase
             currency:Currency::DOLLAR->value
         );
 
-        $handler = $this->buildBasketHandler();
+        $handler = $this->validateBasket();
 
         $this->expectException(UnavailableFruitQuantityException::class);
         $handler->handle($command);
     }
 
     /**
-     * @return ValidateBasketHandler
+     * @param ValidateBasketCommand $command
+     * @return ValidateBasketResponse
+     * @throws NotFoundBasketException
      */
-    public function buildBasketHandler(): ValidateBasketHandler
+    public function validateBasket(ValidateBasketCommand $command): ValidateBasketResponse
     {
-         return new ValidateBasketHandler(
+        $handler = new ValidateBasketHandler(
             $this->basketRepository,
             $this->fruitRepository
         );
+
+         return $handler->handle($command);
+    }
+
+    /**
+     * @return Basket
+     * @throws NotFountElementInBasketException
+     */
+    public function buildBasketSUT(): Basket
+    {
+        $element = new BasketElement(
+            reference: new FruitReference('Ref01',1000)
+        );
+        $element->neededQuantity = new NeededQuantity(3);
+        $basket = Basket::create(
+            $element,
+            BasketAction::ADD_TO_BASKET
+        );
+        $this->basketRepository->save($basket);
+        return $basket;
     }
 
 }

@@ -7,7 +7,7 @@ use App\Application\Exceptions\InvalidCommandException;
 readonly class NeededQuantity
 {
 
-    public function __construct(private int $value)
+    public function __construct(private ?int $value)
     {
         $this->validate();
     }
@@ -18,12 +18,12 @@ readonly class NeededQuantity
      */
     private function validate(): void
     {
-        if ($this->value <= 0 ) {
+        if ($this->value <= 0 && !is_null($this->value) ) {
             throw new InvalidCommandException("La quantité de fruits doit être supérieure à 0 !");
         }
     }
 
-    public function value():int
+    public function value():?int
     {
         return $this->value;
     }

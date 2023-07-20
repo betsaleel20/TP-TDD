@@ -2,7 +2,7 @@
 
 namespace App\Application\ValueObjects;
 
-class Id
+readonly class Id
 {
     public function __construct(private string $value)
     {

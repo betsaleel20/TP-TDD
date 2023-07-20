@@ -4,6 +4,6 @@ namespace App\Application\Exceptions;
 
 use PHPUnit\Framework\Exception;
 
-class InvalidOrderIdException extends Exception
+class IncorrectEnteredAmountException extends Exception
 {
 }
