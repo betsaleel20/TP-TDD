@@ -4,7 +4,7 @@ namespace App\Application\Commands;
 
 use App\Application\Enums\BasketAction;
 use App\Application\Exceptions\InvalidCommandException;
-use App\Application\ValueObjects\NeededQuantity;
+use App\Application\ValueObjects\Quantity;
 
 class SaveBasketCommand
 {

@@ -13,12 +13,12 @@ class InMemoryBasketRepository implements BasketRepository
 
     public function save(Basket $basket): void
     {
-        $inMemoryBaskets = $this->byId($basket->id());
-        if(!$inMemoryBaskets){
+        $inMemoryBasket = $this->byId($basket->id());
+        if(!$inMemoryBasket){
             $this->baskets[] = $basket;
             return;
         }
-        $this->delete( $inMemoryBaskets );
+        $this->delete( $inMemoryBasket );
 
         $this->baskets[] = $basket;
     }

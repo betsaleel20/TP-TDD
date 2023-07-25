@@ -3,6 +3,8 @@
 namespace App\Application\Enums;
 
 
+use InvalidArgumentException;
+
 enum BasketAction: int
 {
 
@@ -13,7 +15,7 @@ enum BasketAction: int
     {
         $self = self::tryFrom($action);
         if (!$self) {
-            throw new \InvalidArgumentException("Cette action n'existe pas dans le système");
+            throw new InvalidArgumentException("Cette action n'existe pas dans le système");
         }
 
         return $self;

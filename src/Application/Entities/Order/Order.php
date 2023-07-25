@@ -2,16 +2,17 @@
 
 namespace App\Application\Entities\Order;
 
+use App\Application\Entities\Basket\Basket;
 use App\Application\Entities\Fruit\Fruit;
 use App\Application\Enums\BasketStatus;
 use App\Application\Enums\Currency;
+use App\Application\Enums\OrderStatus;
 use App\Application\Enums\PaymentMethod;
 use App\Application\ValueObjects\Id;
 use App\Persistence\Repositories\Fruit\InMemoryFruitRepository;
 
 class Order
 {
-    private Id $id;
     private ?PaymentMethod $paymentMethod;
     private ?Currency $currency;
     /**
@@ -23,50 +24,44 @@ class Order
     private float $discount;
     private InMemoryFruitRepository $fruitRepository;
 
-    private function __construct(private Id $basketId)
+    private function __construct(private readonly Id $id)
 
     {
-        $this->id = new Id(time());
         $this->paymentMethod = null;
         $this->currency = null;
         $this->soldFruits = [];
         $this->status = null;
-        $this->discount = 0;
+        $this->discount = 0.0;
         $this->fruitRepository = new InMemoryFruitRepository();
-    }
-    public static function create(
-        Id $basketId,
-        PaymentMethod $paymentMethod,
-        Currency $currency,
-        float $discount
-    ):self
-    {
-        $order = new self($basketId);
-        $order->paymentMethod = $paymentMethod;
-        $order->currency = $currency;
-        $order->discount = $discount;
-        return $order;
-    }
-
-    public function id():Id
-    {
-        return $this->id;
     }
 
     /**
-     * @param Fruit[] $soldFruits
-     * @return void
+     * @param array $fruitsToSold
+     * @param PaymentMethod $paymentMethod
+     * @param Currency $currency
+     * @return self
      */
-    public function addFruitsToOrder(array $soldFruits):void
+    public static function create(
+        array $fruitsToSold,
+        PaymentMethod $paymentMethod,
+        Currency $currency
+    ):self
     {
-        foreach ($soldFruits as $soldFruit) {
-            $this->addOneFruitToOrder($soldFruit);
-        }
+        $order = new self(new Id(time()));
+        $order->status = OrderStatus::IS_CREATED;
+        $order->soldFruits = $fruitsToSold;
+        $order->paymentMethod = $paymentMethod;
+        $order->currency = $currency;
+
+        return $order;
     }
 
-    private function addOneFruitToOrder(Fruit $fruit):void
+    /**
+     * @return Id
+     */
+    public function id(): Id
     {
-        $this->soldFruits[] = $fruit;
+        return $this->id;
     }
 
 }

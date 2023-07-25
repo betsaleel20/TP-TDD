@@ -2,6 +2,8 @@
 
 namespace App\Application\Entities\Basket;
 
+use App\Application\ValueObjects\BasketElement;
+use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Id;
 
 interface BasketRepository
@@ -14,5 +16,4 @@ interface BasketRepository
      * @return Basket[]
      */
     public function allBaskets():array;
-    public function delete(Basket $inMemoryBaskets):void;
 }

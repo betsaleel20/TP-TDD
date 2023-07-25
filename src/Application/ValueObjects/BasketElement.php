@@ -4,7 +4,7 @@ namespace App\Application\ValueObjects;
 
 class BasketElement
 {
-    public ?NeededQuantity $neededQuantity;
+    public ?Quantity $neededQuantity;
 
 
     public function __construct(
@@ -19,13 +19,16 @@ class BasketElement
         return $this->reference;
     }
 
-    public function quantity(): NeededQuantity
+    /**
+     * @return Quantity|null
+     */
+    public function quantity(): ?Quantity
     {
         return $this->neededQuantity;
     }
 
     public function changeQuantity(int $newQuantity):void
     {
-        $this->neededQuantity = new NeededQuantity($newQuantity);
+        $this->neededQuantity = new Quantity($newQuantity);
     }
 }

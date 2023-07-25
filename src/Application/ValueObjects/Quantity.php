@@ -4,7 +4,7 @@ namespace App\Application\ValueObjects;
 
 use App\Application\Exceptions\InvalidCommandException;
 
-readonly class NeededQuantity
+readonly class Quantity
 {
 
     public function __construct(private ?int $value)

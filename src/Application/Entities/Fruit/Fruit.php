@@ -5,12 +5,17 @@ namespace App\Application\Entities\Fruit;
 use App\Application\Enums\FruitStatus;
 use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Id;
-use App\Application\ValueObjects\NeededQuantity;
+use App\Application\ValueObjects\Quantity;
 
 class Fruit
 {
 
     private FruitStatus $status = FruitStatus::AVAILABLE;
+
+    /**
+     * @param Id $id
+     * @param FruitReference $reference
+     */
     public function __construct(
         private Id             $id,
         private FruitReference $reference
