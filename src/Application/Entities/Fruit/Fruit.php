@@ -5,7 +5,7 @@ namespace App\Application\Entities\Fruit;
 use App\Application\Enums\FruitStatus;
 use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Id;
-use App\Application\ValueObjects\OrderedQuantity;
+use App\Application\ValueObjects\NeededQuantity;
 
 class Fruit
 {
@@ -34,6 +34,15 @@ class Fruit
     public function id(): Id
     {
         return $this->id;
+    }
+
+    /**
+     * @param FruitStatus $status
+     * @return void
+     */
+    public function changeStatus(FruitStatus $status): void
+    {
+        $this->status = $status;
     }
 
     /**

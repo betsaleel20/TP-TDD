@@ -4,7 +4,7 @@ namespace App\Application\ValueObjects;
 
 use App\Application\Exceptions\InvalidCommandException;
 
-readonly class OrderedQuantity
+readonly class NeededQuantity
 {
 
     public function __construct(private int $value)
@@ -18,7 +18,7 @@ readonly class OrderedQuantity
      */
     private function validate(): void
     {
-        if ($this->value <= 0) {
+        if ($this->value <= 0 ) {
             throw new InvalidCommandException("La quantité de fruits doit être supérieure à 0 !");
         }
     }

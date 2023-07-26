@@ -2,6 +2,8 @@
 
 namespace App\Application\Enums;
 
+use App\Application\Exceptions\InvalidArgumentsException;
+
 enum Currency :int
 {
     case XAF = 1;
@@ -13,7 +15,7 @@ enum Currency :int
     {
         $self = self::tryFrom($currency);
         if (!$self) {
-            throw new \InvalidArgumentException('Cette monnaie n\'est pas prise en charge par le système');
+            throw new InvalidArgumentsException('Cette monnaie n\'est pas prise en charge par le système');
         }
 
         return $self;
