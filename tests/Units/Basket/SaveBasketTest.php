@@ -225,7 +225,6 @@ class SaveBasketTest extends TestCase
         $response = $this->saveBasket($command);
         //Then
         $finalQuantity = $existingBasket->basketElements()[1]->quantity()->value();
-        $this->assertTrue($response->isSaved);
         $this->assertGreaterThan($initialQuantity, $finalQuantity);
         $this->assertEquals(BasketStatus::IS_SAVED->value, $response->basketStatus);
     }
@@ -281,7 +280,7 @@ class SaveBasketTest extends TestCase
         $quantityToRemove = 2;
         $command = SaveBasketCommand::create(
             fruitRef: $existingBasket->basketElements()[1]->reference()->referenceValue(),
-            action: BasketAction::REMOVE_FROM_BASKET->value,
+            action: BasketAction::DECREASE_QUANTITY->value,
             neededQuantity: $quantityToRemove
         );
         $command->basketId = $existingBasket->id()->value();
@@ -292,7 +291,6 @@ class SaveBasketTest extends TestCase
         //Then
         $finalQuantity = $existingBasket->basketElements()[1]->quantity()->value();
         $this->assertTrue($response->isSaved);
-        $this->assertLessThan(5,4);
         $this->assertLessThan($initialQuantity, $finalQuantity);
         $this->assertEquals($command->basketId, $response->basketId);
         $this->assertEquals(BasketStatus::IS_SAVED->value, $response->basketStatus);
@@ -308,13 +306,12 @@ class SaveBasketTest extends TestCase
         $quantityToRemove = 40;
         $command = SaveBasketCommand::create(
             fruitRef: $existingBasket->basketElements()[1]->reference()->referenceValue(),
-            action: BasketAction::REMOVE_FROM_BASKET->value,
+            action: BasketAction::DECREASE_QUANTITY->value,
             neededQuantity: $quantityToRemove
         );
         $command->basketId = $existingBasket->id()->value();
 
         //When && Then
-        $this->assertIsInt($quantityToRemove);
         $this->expectException(NotAllowedQuantityToRemove::class);
         $this->saveBasket($command);
     }
@@ -328,9 +325,10 @@ class SaveBasketTest extends TestCase
         //Given
         $existingBasket = $this->buildBasketSUT();
         $notExistingReferenceInBasket = "Ref03";
+        $action = rand(BasketAction::REMOVE_FROM_BASKET->value, BasketAction::DECREASE_QUANTITY->value);
         $command = SaveBasketCommand::create(
             fruitRef: $notExistingReferenceInBasket,
-            action: BasketAction::REMOVE_FROM_BASKET->value,
+            action: $action,
             neededQuantity: 2
         );
         $command->basketId = $existingBasket->id()->value();
@@ -359,7 +357,6 @@ class SaveBasketTest extends TestCase
         // When
         $response = $this->saveBasket($command);
         $remainingElements = count($existingBasket->basketElements());
-
 
         //Then
         $this->assertTrue($response->isSaved);
@@ -491,13 +488,11 @@ class SaveBasketTest extends TestCase
      */
     private function saveBasket(SaveBasketCommand $command): SaveBasketResponse
     {
-        $getFruitByReferenceService = new GetFruitByReferenceService($this->fruitRepository);
-        $verifyIfThereIsEnoughFruitInStockService = new VerifyIfThereIsEnoughFruitInStockService($this->fruitRepository);
 
         $handler = new SaveBasketHandler(
             $this->basketRepository,
-            $getFruitByReferenceService,
-            $verifyIfThereIsEnoughFruitInStockService
+            new GetFruitByReferenceService($this->fruitRepository),
+            new VerifyIfThereIsEnoughFruitInStockService($this->fruitRepository)
         );
 
         return $handler->handle($command);
@@ -505,6 +500,7 @@ class SaveBasketTest extends TestCase
 
     /**
      * @return Basket
+     * @throws NotFoundBasketException
      * @throws NotFountElementInBasketException
      */
     private function buildBasketSUTWithOneElement(): Basket

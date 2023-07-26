@@ -5,9 +5,7 @@ namespace App\Application\UseCases\Basket;
 use App\Application\Commands\SaveBasketCommand;
 use App\Application\Entities\Basket\Basket;
 use App\Application\Entities\Basket\BasketRepository;
-use App\Application\Entities\Fruit\FruitRepository;
 use App\Application\Enums\BasketAction;
-use App\Application\Enums\BasketStatus;
 use App\Application\Exceptions\NotAllowedQuantityToRemove;
 use App\Application\Exceptions\NotFoundBasketException;
 use App\Application\Exceptions\NotFoundFruitReferenceException;
@@ -20,18 +18,13 @@ use App\Application\ValueObjects\BasketElement;
 use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Id;
 use App\Application\ValueObjects\Quantity;
-use App\Persistence\Repositories\Fruit\InMemoryFruitRepository;
-use mysql_xdevapi\Exception;
 
 readonly class SaveBasketHandler
 {
-
-
-
     public function __construct(
         private BasketRepository                         $basketRepository,
         private GetFruitByReferenceService               $verifyIfFruitReferenceExistsOrThrowNotFoundException,
-        private VerifyIfThereIsEnoughFruitInStockService $verifyIfThereIsEnoughFruitInStockOrThrowUnavailableFruitQuantityException
+        private VerifyIfThereIsEnoughFruitInStockService $verifyIfThereIsEnoughFruitInStock
     )
     {
     }
@@ -47,22 +40,21 @@ readonly class SaveBasketHandler
 
         $basketId = $command->basketId ? new Id($command->basketId) : null;
         $fruitRef = new FruitReference(reference: $command->fruitRef);
-        $neededQuantity = new Quantity($command->neededQuantity);
+        $neededQuantity = new Quantity($command->neededQuantity ?? 0 );
 
         $this->verifyIfFruitReferenceExistsOrThrowNotFoundException->execute($fruitRef);
         $existingBasket = $this->getBasketIfExistOrThrowNotFoundException($basketId);
 
-        $basketElement = $this->buildBasketElement(
-            action: BasketAction::in($command->action),
-            fruitReference: $fruitRef,
-            neededQuantity: $neededQuantity,
-            existingBasket: $existingBasket
+        $basketElement = new BasketElement($fruitRef);
+        $basketElement->changeQuantity($neededQuantity->value());
+
+        $action = BasketAction::in($command->action);
+
+        $this->checkIfQuantityStillAvailableOrThrowException(
+            $basketElement,
+            $action,
+            $existingBasket
         );
-
-
-        if( $basketElement?->quantity() ){
-            $this->checkIfFruitsAreAvailableOrThrowUnavailableFruitQuantityException( $fruitRef, $basketElement->quantity() );
-        }
 
         $basket = Basket::create(
             newBasketElement: $basketElement,
@@ -100,78 +92,72 @@ readonly class SaveBasketHandler
     }
 
     /**
-     * @param FruitReference $fruitReference
-     * @param Quantity $neededQuantity
+     * @param BasketElement $basketElement
+     * @param BasketAction $action
+     * @param Basket|null $existingBasket
      * @return void
      */
-    private function checkIfFruitsAreAvailableOrThrowUnavailableFruitQuantityException(
-        FruitReference $fruitReference,
-        Quantity $neededQuantity
+    private function checkIfQuantityStillAvailableOrThrowException
+    (
+        BasketElement $basketElement,
+        BasketAction $action,
+        ?Basket $existingBasket
     ): void
     {
-        $state = $this->verifyIfThereIsEnoughFruitInStockOrThrowUnavailableFruitQuantityException->execute(
-            $fruitReference,
-            $neededQuantity
-        );
-        if(!$state)
+        $fruitReference = $basketElement->reference();
+        $quantity = $basketElement->quantity();
+
+        if( !$existingBasket && $action === BasketAction::ADD_TO_BASKET ){
+            $this->verifyIfThereIsEnoughFruitsInStockOrThrowUnavailableFruitQuantityException($fruitReference, $quantity);
+            return;
+        }
+
+        if(!$existingBasket){
+            return;
+        }
+
+        if( $action === BasketAction::ADD_TO_BASKET )
         {
-            throw new UnavailableFruitQuantityException(
-                'Vous ne pouvez pas commander jusqu\'à '.$neededQuantity->value().' fruits de la reference <'.
-                $fruitReference->referenceValue().'>'
+            $quantity = new Quantity(
+                $existingBasket->findOneElement($fruitReference)?->quantity()->value() + $quantity->value()
             );
+            $this->verifyIfThereIsEnoughFruitsInStockOrThrowUnavailableFruitQuantityException($fruitReference, $quantity);
+            return;
+        }
+
+        $foundedElementInBasket = $existingBasket->findOneElement($fruitReference);
+
+        if( BasketAction::DECREASE_QUANTITY->value === $action->value && $foundedElementInBasket )
+        {
+            $quantityInBasket = $foundedElementInBasket->quantity()->value();
+            $quantityInBasket > $quantity->value() ?: throw new NotAllowedQuantityToRemove(
+                'Vous ne pouvez pas retirer plus de <'.$quantityInBasket.'> fruits de votre panier'
+            );
+            $quantity = new Quantity(
+                $quantityInBasket - $quantity->value()
+            );
+            $this->verifyIfThereIsEnoughFruitsInStockOrThrowUnavailableFruitQuantityException($fruitReference, $quantity);
         }
     }
 
     /**
-     * @param BasketAction $action
      * @param FruitReference $fruitReference
-     * @param Quantity|null $neededQuantity
-     * @param Basket|null $existingBasket
-     * @return BasketElement
-     * @throws NotFountElementInBasketException
+     * @param Quantity $neededQuantity
+     * @return void
      */
-    private function buildBasketElement(
-        BasketAction $action,
+    public function verifyIfThereIsEnoughFruitsInStockOrThrowUnavailableFruitQuantityException(
         FruitReference $fruitReference,
-        ?Quantity $neededQuantity,
-        ?Basket $existingBasket
-    ):BasketElement
+        Quantity $neededQuantity
+    ): void
     {
-        if( BasketAction::ADD_TO_BASKET->value === $action->value && !is_null($existingBasket) )
-        {
-            $neededQuantity = new Quantity(
-                $existingBasket->findOneElementInBasket($fruitReference)?->quantity()->value() + $neededQuantity->value()
+        $state = $this->verifyIfThereIsEnoughFruitInStock->execute( $fruitReference, $neededQuantity );
+
+        if (!$state) {
+            throw new UnavailableFruitQuantityException(
+                'Vous ne pouvez pas commander jusqu\'à ' . $neededQuantity->value() . ' fruits de la reference <' .
+                $fruitReference->referenceValue() . '>'
             );
         }
-        if( BasketAction::REMOVE_FROM_BASKET->value === $action->value &&
-            !is_null($existingBasket) &&
-            !is_null($neededQuantity->value())
-        )
-        {
-            $foundedElementInBasket = $existingBasket->findOneElementInBasket($fruitReference);
-            if( !$foundedElementInBasket ){
-                throw new NotFountElementInBasketException(
-                    'Le fruit dont vous souhaitez diminuer la quantité n\'existe pas dans votre panier'
-                );
-            }
-
-            $existingQuantity = $foundedElementInBasket->quantity()?->value();
-            if($existingQuantity < $neededQuantity->value()){
-                throw new NotAllowedQuantityToRemove(
-                    'Vous n\'avez que '. $existingQuantity.' fruits dans votre panier.
-                    Vous ne pouvez en retirer '.$neededQuantity->value());
-            }
-            $neededQuantity = new Quantity(
-                $foundedElementInBasket->quantity()->value() - $neededQuantity->value()
-            );
-        }
-        $basketElement = new BasketElement($fruitReference);
-        if( $neededQuantity->value() )
-        {
-            $basketElement->changeQuantity($neededQuantity->value());
-        }
-
-        return $basketElement;
     }
 
 

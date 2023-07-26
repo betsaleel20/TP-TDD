@@ -11,6 +11,10 @@ class InMemoryBasketRepository implements BasketRepository
 
     private array $baskets = [];
 
+    /**
+     * @param Basket $basket
+     * @return void
+     */
     public function save(Basket $basket): void
     {
         $inMemoryBasket = $this->byId($basket->id());

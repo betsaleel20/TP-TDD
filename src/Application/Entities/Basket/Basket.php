@@ -6,6 +6,7 @@ use App\Application\Enums\Currency;
 use App\Application\Enums\BasketAction;
 use App\Application\Enums\BasketStatus;
 use App\Application\Enums\PaymentMethod;
+use App\Application\Exceptions\NotAllowedQuantityToRemove;
 use App\Application\Exceptions\NotFoundBasketException;
 use App\Application\Exceptions\NotFountElementInBasketException;
 use App\Application\ValueObjects\FruitReference;
@@ -50,11 +51,12 @@ class Basket
             throw new NotFoundBasketException("Vous ne pouvez pas retirer un element dans un panier inexistant");
         }
         if(!$existingBasket){
-            $self = new self(new Id(time()));
-            $self->addElementToBasket($newBasketElement);
-            $self->changeStatus(BasketStatus::IS_SAVED);
-            return $self;
+            $basket = new self(new Id(time()));
+            $basket->addElementToBasket($newBasketElement);
+            $basket->changeStatus(BasketStatus::IS_SAVED);
+            return $basket;
         }
+
         $existingBasket->updateBasket($newBasketElement, $action);
         return $existingBasket;
     }
@@ -101,27 +103,38 @@ class Basket
      */
     public function updateBasket( BasketElement $basketElement, BasketAction  $action ): void
     {
-        $state = $this->checkElementExistence($basketElement->reference());
+
+        $state = $this->checkIfElementExistence($basketElement->reference());
         if(!$state){
-            switch ($action){
-                case BasketAction::REMOVE_FROM_BASKET:
-                    throw new NotFountElementInBasketException('L\'element que vous souhaitez supprimer n\'existe pas');
-                case BasketAction::ADD_TO_BASKET:
-                    $this->addElementToBasket($basketElement);
-                    break;
+            if($action !== BasketAction::ADD_TO_BASKET ){
+                throw new NotFountElementInBasketException(
+                    'L\'element que vous souhaitez manipuler la qunatité n\'existe pas dans votre panier'
+                );
             }
+            $this->addElementToBasket($basketElement);
+            return;
         }
 
-        if($state){
-            $this->removeElementFromBasket($basketElement->reference());
-            if($action === BasketAction::ADD_TO_BASKET ||
-                $action === BasketAction::REMOVE_FROM_BASKET && $basketElement->quantity()?->value() ){
-                $this->addElementToBasket($basketElement);
+        $existingElement = $this->findOneElement($basketElement->reference());
+        if($action === BasketAction::DECREASE_QUANTITY){
+            if($existingElement->quantity()->value() < $basketElement->quantity()->value()){
+                throw new NotAllowedQuantityToRemove(
+                    'Vous n\'avez que <'. $existingElement->quantity()->value().'> fruits dans votre panier.
+                    Vous ne pouvez en retirer plus que ca !');
             }
+            $existingElement->decreaseQuantity($basketElement->quantity()->value());
         }
-        if (count($this->basketElements) === 0) {
-            $this->changeStatus(BasketStatus::IS_DESTROYED);
+
+        $this->removeElementFromBasket($basketElement->reference());
+
+        if($action === BasketAction::ADD_TO_BASKET){
+            $existingElement->increaseQuantity($basketElement->quantity()->value());
         }
+        if($action === BasketAction::ADD_TO_BASKET || $action === BasketAction::DECREASE_QUANTITY)
+        {
+            $this->addElementToBasket($existingElement);
+        }
+        count($this->basketElements) !== 0 ? : $this->changeStatus(BasketStatus::IS_DESTROYED);
 
     }
 
@@ -135,7 +148,11 @@ class Basket
         $this->status = $status;
     }
 
-    public function checkElementExistence(FruitReference $reference): bool
+    /**
+     * @param FruitReference $reference
+     * @return bool
+     */
+    private function checkIfElementExistence(FruitReference $reference): bool
     {
         $foundElement = array_values(array_filter(
             $this->basketElements,
@@ -145,47 +162,10 @@ class Basket
     }
 
     /**
-     * @param BasketElement $incomingElement
-     * @param bool $increaseQuantity
-     * @return void
-     * @throws NotFountElementInBasketException
-     */
-    public function updateAddedElementQuantity(BasketElement $incomingElement, bool $increaseQuantity = true):void
-    {
-        $existingElementInBasket = $this->findOneElementInBasket($incomingElement->reference());
-        if( !$existingElementInBasket ){
-            throw new NotFountElementInBasketException(
-                'L\'element que vous recherchez n\'existe pas dans ce panier'
-            );
-        }
-        $incomingQuantity = $incomingElement->quantity()->value();
-
-        $incomingElement->changeQuantity(
-            $existingElementInBasket->quantity()->value() + $incomingQuantity
-        );
-        if(!$increaseQuantity){
-            $incomingElement->changeQuantity(
-                $existingElementInBasket->quantity()->value() - $incomingQuantity
-            );
-        }
-        $this->removeElementFromBasket($existingElementInBasket->reference());
-        $this->addElementToBasket($incomingElement);
-    }
-
-    /**
-     * @return BasketElement|null
-     */
-    public function lastElement(): ?BasketElement
-    {
-        $numberOfElementsInBasket = count($this->basketElements());
-        return $this->basketElements()[$numberOfElementsInBasket - 1 ];
-    }
-
-    /**
      * @param FruitReference $elementReference
      * @return BasketElement|null
      */
-    public function findOneElementInBasket(FruitReference $elementReference): ?BasketElement
+    public function findOneElement(FruitReference $elementReference): ?BasketElement
     {
         $foundElement = array_values(array_filter(
             $this->basketElements(),

@@ -2,8 +2,6 @@
 
 namespace App\Application\Entities\Basket;
 
-use App\Application\ValueObjects\BasketElement;
-use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Id;
 
 interface BasketRepository

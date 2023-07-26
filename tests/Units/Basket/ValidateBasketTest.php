@@ -80,7 +80,7 @@ class ValidateBasketTest extends TestCase
             currency:       Currency::DOLLAR->value
         );
 
-        //When
+        //When && Then
         $this->expectException(NotFoundBasketException::class);
         $this->validateBasket($command);
     }
@@ -195,12 +195,16 @@ class ValidateBasketTest extends TestCase
         $this->validateBasket($command);
     }
 
+    /**
+     * @throws NotFoundBasketException
+     * @throws NotFountElementInBasketException
+     */
     public function test_can_apply_discount_on_basket()
     {
         $basket = $this->buildBasketSUT();
         $command = new ValidateBasketCommand(
             basketId:$basket->id()->value(),
-            paymentMethod: PaymentMethod::MASTERCARD,currency: Currency::DOLLAR
+            paymentMethod: PaymentMethod::MASTERCARD->value,currency: Currency::DOLLAR->value
         );
     }
 
@@ -224,7 +228,7 @@ class ValidateBasketTest extends TestCase
 
     /**
      * @return Basket
-     * @throws NotFountElementInBasketException
+     * @throws NotFountElementInBasketException|NotFoundBasketException
      */
     public function buildBasketSUT(): Basket
     {
