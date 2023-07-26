@@ -9,4 +9,9 @@ interface BasketRepository
     public function save(Basket $basket): void;
 
     public function byId(Id $basketId): ?Basket;
+
+    /**
+     * @return Basket[]
+     */
+    public function allBaskets():array;
 }

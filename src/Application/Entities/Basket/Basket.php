@@ -3,28 +3,25 @@
 namespace App\Application\Entities\Basket;
 
 use App\Application\Enums\Currency;
-use App\Application\Enums\OrderAction;
+use App\Application\Enums\BasketAction;
 use App\Application\Enums\BasketStatus;
 use App\Application\Enums\PaymentMethod;
-use App\Application\Exceptions\NotFountOrderElementException;
+use App\Application\Exceptions\NotAllowedQuantityToRemove;
+use App\Application\Exceptions\NotFoundBasketException;
+use App\Application\Exceptions\NotFountElementInBasketException;
 use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Id;
 use App\Application\ValueObjects\BasketElement;
+use App\Application\ValueObjects\Quantity;
 use App\Persistence\Repositories\Fruit\InMemoryFruitRepository;
 
 class Basket
 {
-    private ?PaymentMethod $paymentMethod = null;
-    private ?Currency $currency = null;
-
-
     /**
      * @var BasketElement[]
      */
     private array $basketElements;
     private BasketStatus $status;
-
-    private InMemoryFruitRepository $fruitRepository;
 
     /**
      * @param Id $id
@@ -33,20 +30,35 @@ class Basket
         readonly private Id $id
     )
     {
-        $this->fruitRepository = new InMemoryFruitRepository();
         $this->basketElements = [];
     }
 
+    /**
+     * @param BasketElement $newBasketElement
+     * @param BasketAction $action
+     * @param Basket|null $existingBasket
+     * @return self
+     * @throws NotFountElementInBasketException
+     * @throws NotFoundBasketException
+     */
     public static function create(
-        BasketElement $basketElement,
-        ?Id           $id = null,
+        BasketElement $newBasketElement,
+        BasketAction           $action,
+        ?Basket       $existingBasket = null
     ): self
     {
-        $self = new self($id ?? new Id(time()));
-        $self->addElementToBasket($basketElement);
-        $self->changeStatus(BasketStatus::PENDING);
+        if($action === BasketAction::REMOVE_FROM_BASKET && !$existingBasket){
+            throw new NotFoundBasketException("Vous ne pouvez pas retirer un element dans un panier inexistant");
+        }
+        if(!$existingBasket){
+            $basket = new self(new Id(time()));
+            $basket->addElementToBasket($newBasketElement);
+            $basket->changeStatus(BasketStatus::IS_SAVED);
+            return $basket;
+        }
 
-        return $self;
+        $existingBasket->updateBasket($newBasketElement, $action);
+        return $existingBasket;
     }
 
     /**
@@ -58,30 +70,12 @@ class Basket
     }
 
     /**
-     * @param PaymentMethod $paymentMethod
-     */
-    public function changePaymentMethod(PaymentMethod $paymentMethod): void
-    {
-        $this->paymentMethod = $paymentMethod;
-    }
-
-    /**
-     * @param Currency $currency
-     */
-    public function changeCurrency(Currency $currency): void
-    {
-        $this->currency = $currency;
-    }
-
-
-
-    /**
-     * @param BasketElement $orderElement
+     * @param BasketElement $basketElement
      * @return void
      */
-    public function addElementToBasket(BasketElement $orderElement): void
+    public function addElementToBasket(BasketElement $basketElement): void
     {
-        $this->basketElements[] = $orderElement;
+        $this->basketElements[] = $basketElement;
     }
 
 
@@ -97,35 +91,51 @@ class Basket
     {
         $this->basketElements = array_values(array_filter(
             $this->basketElements,
-            fn(BasketElement $e) => $e->reference()->value() !== $reference->value()
+            fn(BasketElement $e) => $e->reference()->referenceValue() !== $reference->referenceValue()
         ));
-
-        if (count($this->basketElements) === 0) {
-            $this->changeStatus(BasketStatus::IS_DESTROYED);
-        }
     }
 
     /**
-     * @throws NotFountOrderElementException
+     * @param BasketElement $basketElement
+     * @param BasketAction $action
+     * @return void
+     * @throws NotFountElementInBasketException
      */
-    public function updateBasketElement(
-        BasketElement $orderElement,
-        OrderAction   $action
-    ): void
+    public function updateBasket( BasketElement $basketElement, BasketAction  $action ): void
     {
-        $state = $this->checkElementExistence($orderElement->reference());
-        if ($action === OrderAction::ADD_TO_ORDER) {
-            if($state){
-                $this->updateAddedElementQuantity($orderElement);
-                return;
+
+        $state = $this->checkIfElementExistence($basketElement->reference());
+        if(!$state){
+            if($action !== BasketAction::ADD_TO_BASKET ){
+                throw new NotFountElementInBasketException(
+                    'L\'element que vous souhaitez manipuler la qunatité n\'existe pas dans votre panier'
+                );
             }
-            $this->addElementToBasket($orderElement);
+            $this->addElementToBasket($basketElement);
             return;
         }
-        if(!$state){
-            throw new NotFountOrderElementException('L\'element que vous souhaitez supprimer n\'existe pas');
+
+        $existingElement = $this->findOneElement($basketElement->reference());
+        if($action === BasketAction::DECREASE_QUANTITY){
+            if($existingElement->quantity()->value() < $basketElement->quantity()->value()){
+                throw new NotAllowedQuantityToRemove(
+                    'Vous n\'avez que <'. $existingElement->quantity()->value().'> fruits dans votre panier.
+                    Vous ne pouvez en retirer plus que ca !');
+            }
+            $existingElement->decreaseQuantity($basketElement->quantity()->value());
         }
-        $this->removeElementFromBasket($orderElement->reference());
+
+        $this->removeElementFromBasket($basketElement->reference());
+
+        if($action === BasketAction::ADD_TO_BASKET){
+            $existingElement->increaseQuantity($basketElement->quantity()->value());
+        }
+        if($action === BasketAction::ADD_TO_BASKET || $action === BasketAction::DECREASE_QUANTITY)
+        {
+            $this->addElementToBasket($existingElement);
+        }
+        count($this->basketElements) !== 0 ? : $this->changeStatus(BasketStatus::IS_DESTROYED);
+
     }
 
     public function status(): BasketStatus
@@ -138,39 +148,38 @@ class Basket
         $this->status = $status;
     }
 
-    public function checkElementExistence(FruitReference $reference): bool
+    /**
+     * @param FruitReference $reference
+     * @return bool
+     */
+    private function checkIfElementExistence(FruitReference $reference): bool
     {
         $foundElement = array_values(array_filter(
             $this->basketElements,
-            fn(BasketElement $oe)=>$oe->reference()->value() === $reference->value()
+            fn(BasketElement $oe)=>$oe->reference()->referenceValue() === $reference->referenceValue()
         ));
         return count($foundElement) > 0;
     }
 
     /**
-     * @param BasketElement $elementAddedToBasket
+     * @param FruitReference $elementReference
+     * @return BasketElement|null
+     */
+    public function findOneElement(FruitReference $elementReference): ?BasketElement
+    {
+        $foundElement = array_values(array_filter(
+            $this->basketElements(),
+            fn(BasketElement $be) => $be->reference()->referenceValue() === $elementReference->referenceValue()
+        ));
+        return count($foundElement) > 0 ? $foundElement[0] : null ;
+    }
+
+    /**
      * @return void
      */
-    public function updateAddedElementQuantity(BasketElement $elementAddedToBasket):void
+    public function makeBasketEmpty():void
     {
-        $elementAddedToBasket->changeQuantity($elementAddedToBasket->quantity());
+        $this->basketElements = [];
     }
-
-    /**
-     * @return PaymentMethod
-     */
-    public function paymentMethod():PaymentMethod
-    {
-        return $this->paymentMethod;
-    }
-
-    /**
-     * @return Currency
-     */
-    public function currency():Currency
-    {
-        return $this->currency;
-    }
-
 
 }
