@@ -7,9 +7,7 @@ class BasketElement
     public Quantity $neededQuantity;
 
 
-    public function __construct(
-        private readonly FruitReference $reference
-    )
+    public function __construct( private readonly FruitReference $reference )
     {
         $this->neededQuantity = new Quantity(0);
     }
@@ -44,5 +42,13 @@ class BasketElement
     public function decreaseQuantity(int $quantity): void
     {
         $this->changeQuantity($this->neededQuantity->value() - $quantity);
+    }
+
+    /**
+     * @return float
+     */
+    public function calculateAmount():float
+    {
+        return $this->reference()->price() * $this->quantity()->value();
     }
 }

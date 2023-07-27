@@ -48,6 +48,7 @@ class Order
     ):self
     {
         $order = new self(new Id(time()));
+
         $order->status = OrderStatus::IS_CREATED;
         $order->soldFruits = $fruitsToSold;
         $order->paymentMethod = $paymentMethod;

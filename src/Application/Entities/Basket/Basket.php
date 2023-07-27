@@ -75,7 +75,8 @@ class Basket
      */
     public function addElementToBasket(BasketElement $basketElement): void
     {
-        $this->basketElements[] = $basketElement;
+        $this->basketElements[$basketElement->reference()->referenceValue()]['price'] = $basketElement->reference()->price();
+        $this->basketElements[$basketElement->reference()->referenceValue()]['quantity'] = $basketElement->quantity()->value();
     }
 
 
@@ -116,6 +117,8 @@ class Basket
         }
 
         $existingElement = $this->findOneElement($basketElement->reference());
+        $this->removeElementFromBasket($basketElement->reference());
+
         if($action === BasketAction::DECREASE_QUANTITY){
             if($existingElement->quantity()->value() < $basketElement->quantity()->value()){
                 throw new NotAllowedQuantityToRemove(
@@ -123,15 +126,14 @@ class Basket
                     Vous ne pouvez en retirer plus que ca !');
             }
             $existingElement->decreaseQuantity($basketElement->quantity()->value());
+            $this->addElementToBasket($existingElement);
+            return;
         }
 
-        $this->removeElementFromBasket($basketElement->reference());
 
-        if($action === BasketAction::ADD_TO_BASKET){
-            $existingElement->increaseQuantity($basketElement->quantity()->value());
-        }
-        if($action === BasketAction::ADD_TO_BASKET || $action === BasketAction::DECREASE_QUANTITY)
+        if($action === BasketAction::ADD_TO_BASKET )
         {
+            $existingElement->increaseQuantity( $basketElement->quantity()->value() );
             $this->addElementToBasket($existingElement);
         }
         count($this->basketElements) !== 0 ? : $this->changeStatus(BasketStatus::IS_DESTROYED);
@@ -180,6 +182,19 @@ class Basket
     public function makeBasketEmpty():void
     {
         $this->basketElements = [];
+    }
+
+    /**
+     * @return float
+     */
+    public function totalCost():float
+    {
+        $amount = 0.0;
+        $basketElements = $this->basketElements;
+        foreach ($basketElements as $basketElement) {
+            $amount= $amount + $basketElement->calculateAmount();
+        }
+        return $amount;
     }
 
 }

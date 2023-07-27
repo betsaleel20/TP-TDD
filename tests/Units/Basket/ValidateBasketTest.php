@@ -202,10 +202,23 @@ class ValidateBasketTest extends TestCase
     public function test_can_apply_discount_on_basket()
     {
         $basket = $this->buildBasketSUT();
+        $initialAmount = $basket->totalCost();
         $command = new ValidateBasketCommand(
             basketId:$basket->id()->value(),
             paymentMethod: PaymentMethod::MASTERCARD->value,currency: Currency::DOLLAR->value
         );
+
+        // When
+        $response = $this->validateBasket($command);
+        $finalAmount = $response->finalAmount;
+
+        //Then
+        $this->assertTrue( $response->isValidated );
+        $this->assertNotNull( $response->orderId );
+        $this->assertEmpty($basket->basketElements());
+        $this->assertGreaterThan($finalAmount, $initialAmount);
+        $this->assertGreaterThan(0,$finalAmount);
+        $this->assertEquals( $response->isValidated, $basket->status()->value );
     }
 
 
