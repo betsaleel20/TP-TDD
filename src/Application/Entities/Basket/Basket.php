@@ -75,8 +75,8 @@ class Basket
      */
     public function addElementToBasket(BasketElement $basketElement): void
     {
-        $this->basketElements[$basketElement->reference()->referenceValue()]['price'] = $basketElement->reference()->price();
         $this->basketElements[$basketElement->reference()->referenceValue()]['quantity'] = $basketElement->quantity()->value();
+        $this->basketElements[$basketElement->reference()->referenceValue()]['price'] = $basketElement->reference()->price();
     }
 
 
@@ -90,10 +90,7 @@ class Basket
 
     public function removeElementFromBasket(FruitReference $reference): void
     {
-        $this->basketElements = array_values(array_filter(
-            $this->basketElements,
-            fn(BasketElement $e) => $e->reference()->referenceValue() !== $reference->referenceValue()
-        ));
+        unset($this->basketElements[$reference->referenceValue()]);
     }
 
     /**
@@ -104,7 +101,6 @@ class Basket
      */
     public function updateBasket( BasketElement $basketElement, BasketAction  $action ): void
     {
-
         $state = $this->checkIfElementExistence($basketElement->reference());
         if(!$state){
             if($action !== BasketAction::ADD_TO_BASKET ){
@@ -117,7 +113,6 @@ class Basket
         }
 
         $existingElement = $this->findOneElement($basketElement->reference());
-        $this->removeElementFromBasket($basketElement->reference());
 
         if($action === BasketAction::DECREASE_QUANTITY){
             if($existingElement->quantity()->value() < $basketElement->quantity()->value()){
@@ -130,14 +125,16 @@ class Basket
             return;
         }
 
-
         if($action === BasketAction::ADD_TO_BASKET )
         {
             $existingElement->increaseQuantity( $basketElement->quantity()->value() );
             $this->addElementToBasket($existingElement);
-        }
-        count($this->basketElements) !== 0 ? : $this->changeStatus(BasketStatus::IS_DESTROYED);
 
+            return;
+        }
+
+        $this->removeElementFromBasket($basketElement->reference());
+        count($this->basketElements) !== 0 ? : $this->changeStatus(BasketStatus::IS_DESTROYED);
     }
 
     public function status(): BasketStatus
@@ -156,11 +153,7 @@ class Basket
      */
     private function checkIfElementExistence(FruitReference $reference): bool
     {
-        $foundElement = array_values(array_filter(
-            $this->basketElements,
-            fn(BasketElement $oe)=>$oe->reference()->referenceValue() === $reference->referenceValue()
-        ));
-        return count($foundElement) > 0;
+        return array_key_exists($reference->referenceValue(), $this->basketElements);
     }
 
     /**
@@ -169,11 +162,14 @@ class Basket
      */
     public function findOneElement(FruitReference $elementReference): ?BasketElement
     {
-        $foundElement = array_values(array_filter(
-            $this->basketElements(),
-            fn(BasketElement $be) => $be->reference()->referenceValue() === $elementReference->referenceValue()
-        ));
-        return count($foundElement) > 0 ? $foundElement[0] : null ;
+        $keyExist = array_key_exists($elementReference->referenceValue(), $this->basketElements);
+        if($keyExist){
+            $foundElement = $this->basketElements[$elementReference->referenceValue()];
+            $asValueObject = new BasketElement($elementReference);
+            $asValueObject->quantity = new Quantity($foundElement['quantity']);
+            return $asValueObject ;
+        }
+        return null ;
     }
 
     /**

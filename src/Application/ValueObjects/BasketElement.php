@@ -4,12 +4,11 @@ namespace App\Application\ValueObjects;
 
 class BasketElement
 {
-    public Quantity $neededQuantity;
-
+    public Quantity $quantity;
 
     public function __construct( private readonly FruitReference $reference )
     {
-        $this->neededQuantity = new Quantity(0);
+        $this->quantity = new Quantity(0);
     }
 
     public function reference(): FruitReference
@@ -22,7 +21,7 @@ class BasketElement
      */
     public function quantity(): Quantity
     {
-        return $this->neededQuantity;
+        return $this->quantity;
     }
 
     /**
@@ -31,17 +30,17 @@ class BasketElement
      */
     public function changeQuantity(int $quantity):void
     {
-        $this->neededQuantity = new Quantity($quantity);
+        $this->quantity = new Quantity($quantity);
     }
 
     public function increaseQuantity(int $quantity): void
     {
-        $this->changeQuantity($this->neededQuantity->value() + $quantity);
+        $this->changeQuantity($this->quantity->value() + $quantity);
     }
 
     public function decreaseQuantity(int $quantity): void
     {
-        $this->changeQuantity($this->neededQuantity->value() - $quantity);
+        $this->changeQuantity($this->quantity->value() - $quantity);
     }
 
     /**

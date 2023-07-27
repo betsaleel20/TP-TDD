@@ -101,7 +101,7 @@ class SaveBasketTest extends TestCase
         $existingBasket = $this->buildBasketSUT();
         $badAction = 237;
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[0]->reference()->referenceValue(),
+            fruitRef: array_key_first($existingBasket->basketElements()),
             action: $badAction,
             neededQuantity: 1
         );
@@ -124,7 +124,7 @@ class SaveBasketTest extends TestCase
         //Given
         $existingBasket = $this->buildBasketSUT();
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[0]->reference()->referenceValue(),
+            fruitRef: array_key_first($existingBasket->basketElements()),
             action: BasketAction::ADD_TO_BASKET->value,
             neededQuantity: 1
         );
@@ -193,7 +193,7 @@ class SaveBasketTest extends TestCase
         $existingBasket = $this->buildBasketSUT();
         $invalidQuantity = -3;
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[0]->reference()->referenceValue(),
+            fruitRef: array_key_first($existingBasket->basketElements()),
             action: BasketAction::ADD_TO_BASKET->value,
             neededQuantity: $invalidQuantity
         );
@@ -212,10 +212,11 @@ class SaveBasketTest extends TestCase
     public function test_can_update_basket_by_increasing_needed_quantity_for_a_basket_element(){
         //Given
         $existingBasket = $this->buildBasketSUT();
-        $initialQuantity = $existingBasket->basketElements()[1]->quantity()->value();
+        $reference = array_key_last($existingBasket->basketElements());
+        $initialQuantity = $existingBasket->basketElements()[$reference]['quantity'];
         $quantityToAdd = 2;
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[1]->reference()->referenceValue(),
+            fruitRef: $reference,
             action: BasketAction::ADD_TO_BASKET->value,
             neededQuantity: $quantityToAdd
         );
@@ -224,7 +225,7 @@ class SaveBasketTest extends TestCase
         //When
         $response = $this->saveBasket($command);
         //Then
-        $finalQuantity = $existingBasket->basketElements()[1]->quantity()->value();
+        $finalQuantity = $existingBasket->basketElements()[$reference]['quantity'];
         $this->assertGreaterThan($initialQuantity, $finalQuantity);
         $this->assertEquals(BasketStatus::IS_SAVED->value, $response->basketStatus);
     }
@@ -236,7 +237,7 @@ class SaveBasketTest extends TestCase
     public function test_can_throw_unavailable_stock_quantity_exception_when_increasing_needed_quantity(){
         //Given
         $existingBasket = $this->buildBasketSUT();
-        $existingReference = 'Ref02';
+        $existingReference = array_key_last($existingBasket->basketElements());
         $command = SaveBasketCommand::create(
             fruitRef: $existingReference,
             action: BasketAction::ADD_TO_BASKET->value,
@@ -256,9 +257,10 @@ class SaveBasketTest extends TestCase
     public function test_can_throw_invalid_command_exception_when_updating_basket_element_with_invalid_quantity(){
         //Given
         $existingBasket = $this->buildBasketSUT();
+        $reference = array_key_last($existingBasket->basketElements());
         $invalidQuantity = -10;
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[1]->reference()->referenceValue(),
+            fruitRef: $reference,
             action: BasketAction::ADD_TO_BASKET->value,
             neededQuantity: $invalidQuantity
         );
@@ -276,10 +278,11 @@ class SaveBasketTest extends TestCase
     public function test_can_update_basket_by_decreasing_needed_quantity_for_a_basket_element(){
         //Given
         $existingBasket = $this->buildBasketSUT();
-        $initialQuantity = $existingBasket->basketElements()[1]->quantity()->value();
+        $reference = array_key_last($existingBasket->basketElements());
+        $initialQuantity = $existingBasket->basketElements()[$reference ]['quantity'];
         $quantityToRemove = 2;
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[1]->reference()->referenceValue(),
+            fruitRef: $reference,
             action: BasketAction::DECREASE_QUANTITY->value,
             neededQuantity: $quantityToRemove
         );
@@ -289,7 +292,7 @@ class SaveBasketTest extends TestCase
         $response = $this->saveBasket($command);
 
         //Then
-        $finalQuantity = $existingBasket->basketElements()[1]->quantity()->value();
+        $finalQuantity = $existingBasket->basketElements()[$reference]['quantity'];
         $this->assertTrue($response->isSaved);
         $this->assertLessThan($initialQuantity, $finalQuantity);
         $this->assertEquals($command->basketId, $response->basketId);
@@ -303,9 +306,10 @@ class SaveBasketTest extends TestCase
     public function test_can_throw_not_allowed_quantity_to_remove_exception_when_decreasing_needed_quantity(){
         //Given
         $existingBasket = $this->buildBasketSUT();
+        $reference = array_key_last($existingBasket->basketElements());
         $quantityToRemove = 40;
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[1]->reference()->referenceValue(),
+            fruitRef: $reference,
             action: BasketAction::DECREASE_QUANTITY->value,
             neededQuantity: $quantityToRemove
         );
@@ -347,9 +351,10 @@ class SaveBasketTest extends TestCase
     public function test_can_remove_element_from_basket()
     {
         $existingBasket = $this->buildBasketSUT();
+        $reference = array_key_first($existingBasket->basketElements());
         $expectedRemainingElementAfterRemove = count($existingBasket->basketElements()) - 1;
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[0]->reference()->referenceValue(),
+            fruitRef: $reference,
             action: BasketAction::REMOVE_FROM_BASKET->value,
         );
         $command->basketId = $existingBasket->id()->value();
@@ -393,8 +398,9 @@ class SaveBasketTest extends TestCase
     {
         //Given
         $existingBasket = $this->buildBasketSUT();
+        $reference = array_key_first($existingBasket->basketElements());
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[0]->reference()->referenceValue(),
+            fruitRef: $reference,
             action: BasketAction::REMOVE_FROM_BASKET->value,
         );
         $incorrectId = "someIncorrectBasketId";
@@ -415,8 +421,9 @@ class SaveBasketTest extends TestCase
     {
         //Given
         $existingBasket = $this->buildBasketSUT();
+        $reference = array_key_first($existingBasket->basketElements());
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[0]->reference()->referenceValue(),
+            fruitRef: $reference,
             action: BasketAction::REMOVE_FROM_BASKET->value,
         );
         $basketIdSetToNull = null;
@@ -438,8 +445,9 @@ class SaveBasketTest extends TestCase
     {
         //Given
         $existingBasket = $this->buildBasketSUTWithOneElement();
+        $reference = array_key_first($existingBasket->basketElements());
         $command = SaveBasketCommand::create(
-            fruitRef: $existingBasket->basketElements()[0]->reference()->referenceValue(),
+            fruitRef: $reference,
             action :BasketAction::REMOVE_FROM_BASKET->value
         );
         $command->basketId = $existingBasket->id()->value();
@@ -463,7 +471,7 @@ class SaveBasketTest extends TestCase
         $basketElement = new BasketElement(
             reference: new FruitReference(reference: 'Ref01', price: 1000)
         );
-        $basketElement->neededQuantity = new Quantity(2);
+        $basketElement->quantity = new Quantity(2);
 
         $existingBasket = Basket::create(
             newBasketElement: $basketElement,
@@ -473,7 +481,7 @@ class SaveBasketTest extends TestCase
         $basketElement2 = new BasketElement(
             reference: new FruitReference(reference: 'Ref02', price: 2000)
         );
-        $basketElement2->neededQuantity = new Quantity(3);
+        $basketElement2->quantity = new Quantity(3);
         $existingBasket->addElementToBasket($basketElement2);
         $this->basketRepository->save($existingBasket);
 
@@ -509,7 +517,7 @@ class SaveBasketTest extends TestCase
         $basketElement = new BasketElement(
             reference: $goodFruitReference,
         );
-        $basketElement->neededQuantity = new Quantity(2);
+        $basketElement->quantity = new Quantity(2);
         $existingBasket = Basket::create(
             newBasketElement: $basketElement,
             action: BasketAction::ADD_TO_BASKET
