@@ -57,6 +57,8 @@ readonly class ValidateBasketHandler
         $this->verifyIfFruitReferenceStillExistsOrThrowNotFoundFruitReferenceException( $basketElements );
         $this->checkIfThereIsEnoughFruitInStockOrThrowUnavailableFruitQuantityException( $basketElements );
 
+        $this->applyDiscountOnBasketIfQualified($basket);
+
         $fruitsToSold = $this->getFruitsToSold($basketElements);
         $order = Order::create(
             fruitsToSold: $fruitsToSold,
@@ -69,20 +71,6 @@ readonly class ValidateBasketHandler
         $response->orderId = $order->id()->value();
         $response->isValidated = true;
         return $response;
-    }
-
-    /**
-     * @param int $paymentMethod
-     * @return PaymentMethod
-     */
-    private function getPaymentMethodOrThrowInvalidArgumentsException(int $paymentMethod): PaymentMethod
-    {
-        return PaymentMethod::in($paymentMethod);
-    }
-
-    private function getCurrencyOrThrowInvalidArgumentsException(int $currency):Currency
-    {
-        return Currency::in($currency);
     }
 
     /**
@@ -144,6 +132,11 @@ readonly class ValidateBasketHandler
             $fruits = array_merge($fruits, $fruitsByReference);
         }
         return $fruits;
+    }
+
+    private function applyDiscountOnBasketIfQualified(Basket $basket)
+    {
+
     }
 
 }

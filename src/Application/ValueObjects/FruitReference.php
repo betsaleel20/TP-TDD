@@ -13,7 +13,7 @@ readonly class FruitReference
      * @param string $reference
      * @param float $price
      */
-    public function __construct(private string $reference, float $price = 750.0)
+    public function __construct(private string $reference, float $price = 1000.0)
     {
         $this->price = $price;
         $this->validate();
@@ -28,7 +28,7 @@ readonly class FruitReference
         if($this->price <=0){
             throw new InvalidCommandException("Le prix doit etre supérieur à zéro !");
         }
-        if (empty($this->reference)) {
+        if ( !$this->reference ) {
             throw new InvalidCommandException("La référence est invalide !");
         }
     }
@@ -39,6 +39,14 @@ readonly class FruitReference
     public function referenceValue(): string
     {
         return $this->reference;
+    }
+
+    /**
+     * @return float
+     */
+    public function price():float
+    {
+        return $this->price;
     }
 
 }

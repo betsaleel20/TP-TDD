@@ -156,7 +156,7 @@ class ValidateBasketTest extends TestCase
         $basket = $this->buildBasketSUT();
 
         $newElement = new BasketElement( reference: new FruitReference('Ref02',2000) );
-        $newElement->neededQuantity = new Quantity(10);
+        $newElement->quantity = new Quantity(10);
         $basket->addElementToBasket($newElement);
         $command = new ValidateBasketCommand(
             basketId:             $basket->id()->value(),
@@ -178,7 +178,7 @@ class ValidateBasketTest extends TestCase
         //given
         $notAvailableReference = 'noMoreAvailable';
         $element = new BasketElement( reference: new FruitReference($notAvailableReference,1000) );
-        $element->neededQuantity = new Quantity(3);
+        $element->quantity = new Quantity(3);
         $basket = Basket::create(
             $element,
             BasketAction::ADD_TO_BASKET
@@ -202,10 +202,23 @@ class ValidateBasketTest extends TestCase
     public function test_can_apply_discount_on_basket()
     {
         $basket = $this->buildBasketSUT();
+        $initialAmount = $basket->totalCost();
         $command = new ValidateBasketCommand(
             basketId:$basket->id()->value(),
             paymentMethod: PaymentMethod::MASTERCARD->value,currency: Currency::DOLLAR->value
         );
+
+        // When
+        $response = $this->validateBasket($command);
+        $finalAmount = $response->finalAmount;
+
+        //Then
+        $this->assertTrue( $response->isValidated );
+        $this->assertNotNull( $response->orderId );
+        $this->assertEmpty($basket->basketElements());
+        $this->assertGreaterThan($finalAmount, $initialAmount);
+        $this->assertGreaterThan(0,$finalAmount);
+        $this->assertEquals( $response->isValidated, $basket->status()->value );
     }
 
 
@@ -233,14 +246,14 @@ class ValidateBasketTest extends TestCase
     public function buildBasketSUT(): Basket
     {
         $element1 = new BasketElement( reference: new FruitReference('Ref01',1000) );
-        $element1->neededQuantity = new Quantity(3);
+        $element1->quantity = new Quantity(3);
         $basket = Basket::create(
             $element1,
             BasketAction::ADD_TO_BASKET
         );
 
         $element2 = new BasketElement( reference: new FruitReference('Ref02',2000) );
-        $element2->neededQuantity = new Quantity(4);
+        $element2->quantity = new Quantity(4);
         $basket->addElementToBasket($element2);
 
         $this->basketRepository->save($basket);

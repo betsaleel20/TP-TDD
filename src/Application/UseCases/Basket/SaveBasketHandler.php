@@ -130,12 +130,11 @@ readonly class SaveBasketHandler
         if( BasketAction::DECREASE_QUANTITY->value === $action->value && $foundedElementInBasket )
         {
             $quantityInBasket = $foundedElementInBasket->quantity()->value();
-            $quantityInBasket > $quantity->value() ?: throw new NotAllowedQuantityToRemove(
+            $quantityInBasket > $quantity->value() ? : throw new NotAllowedQuantityToRemove(
                 'Vous ne pouvez pas retirer plus de <'.$quantityInBasket.'> fruits de votre panier'
             );
-            $quantity = new Quantity(
-                $quantityInBasket - $quantity->value()
-            );
+
+            $quantity = new Quantity( $quantityInBasket - $quantity->value() );
             $this->verifyIfThereIsEnoughFruitsInStockOrThrowUnavailableFruitQuantityException($fruitReference, $quantity);
         }
     }
