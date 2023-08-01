@@ -2,57 +2,56 @@
 
 namespace App\Application\Entities\Order;
 
-use App\Application\Entities\Basket\Basket;
 use App\Application\Entities\Fruit\Fruit;
-use App\Application\Enums\BasketStatus;
 use App\Application\Enums\Currency;
 use App\Application\Enums\OrderStatus;
 use App\Application\Enums\PaymentMethod;
 use App\Application\ValueObjects\Id;
-use App\Persistence\Repositories\Fruit\InMemoryFruitRepository;
 
 class Order
 {
+    private  Id $id;
     private ?PaymentMethod $paymentMethod;
     private ?Currency $currency;
     /**
      * @var Fruit[]
      */
     private array $soldFruits;
+
     private ?OrderStatus $status;
-
     private float $discount;
-    private InMemoryFruitRepository $fruitRepository;
+    private float $billAmount;
 
-    private function __construct(private readonly Id $id)
-
+    private function __construct(Id $id,
+                                 array $fruitsToSale,
+                                 PaymentMethod $paymentMethod,
+                                 Currency $currency
+    )
     {
-        $this->paymentMethod = null;
-        $this->currency = null;
-        $this->soldFruits = [];
+        $this->id = $id;
+        $this->paymentMethod = $paymentMethod;
+        $this->currency = $currency;
+        $this->soldFruits = $fruitsToSale;
         $this->status = null;
         $this->discount = 0.0;
-        $this->fruitRepository = new InMemoryFruitRepository();
+        $this->billAmount = 0.0;
     }
 
     /**
-     * @param array $fruitsToSold
+     * @param Fruit[] $fruitsToSale
      * @param PaymentMethod $paymentMethod
      * @param Currency $currency
      * @return self
      */
     public static function create(
-        array $fruitsToSold,
+        array         $fruitsToSale,
         PaymentMethod $paymentMethod,
-        Currency $currency
+        Currency      $currency
     ):self
     {
-        $order = new self(new Id(time()));
-
+        $order = new self(new Id(time()), $fruitsToSale, $paymentMethod, $currency);
         $order->status = OrderStatus::IS_CREATED;
-        $order->soldFruits = $fruitsToSold;
-        $order->paymentMethod = $paymentMethod;
-        $order->currency = $currency;
+        $order->billAmount = $order->calculateTotalCost();
 
         return $order;
     }
@@ -63,6 +62,71 @@ class Order
     public function id(): Id
     {
         return $this->id;
+    }
+
+    /**
+     * @return float
+     */
+    public function totalCost():float
+    {
+        return $this->billAmount;
+    }
+
+    /**
+     * @return float
+     */
+    public function discount():float
+    {
+        return $this->discount;
+    }
+
+    /**
+     * @return Fruit[]
+     */
+    public function soldFruits():array
+    {
+        return $this->soldFruits;
+    }
+
+    /**
+     * @return OrderStatus
+     */
+    public function status(): OrderStatus
+    {
+        return $this->status;
+    }
+
+    /**
+     * @return float
+     */
+    private function calculateTotalCost():float
+    {
+        $totalCost = 0.0;
+        $fruits = $this->soldFruits;
+        foreach ($fruits as $fruit) {
+            $totalCost = $totalCost + $fruit->reference()->price();
+        }
+        return $totalCost;
+    }
+
+    public function discountOnFirstElement( int $numberOfFruits, float $price ):void
+    {
+        $discount = round($numberOfFruits * $price *10 / 100, 2);
+        $this->discount += $discount;
+        $this->billAmount = $this->calculateTotalCost() - $this->discount;
+
+    }
+
+    /**
+     * @param int $percentage
+     * @return void
+     */
+    public function applyDiscount(int $percentage):void
+    {
+        $totalCost = $this->calculateTotalCost();
+        $discount = round($totalCost * $percentage/100,2);
+        $this->discount += $discount;
+        $this->billAmount = $totalCost - $this->discount;
     }
 
 }

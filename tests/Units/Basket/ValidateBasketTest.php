@@ -12,13 +12,12 @@ use App\Application\Enums\Currency;
 use App\Application\Enums\PaymentMethod;
 use App\Application\Exceptions\EmptyBasketException;
 use App\Application\Exceptions\InvalidArgumentsException;
-use App\Application\Exceptions\InvalidCommandException;
 use App\Application\Exceptions\NotFoundBasketException;
 use App\Application\Exceptions\NotFoundFruitReferenceException;
 use App\Application\Exceptions\NotFountElementInBasketException;
 use App\Application\Exceptions\UnavailableFruitQuantityException;
 use App\Application\Responses\ValidateBasketResponse;
-use App\Application\Services\GetFruitsToSoldService;
+use App\Application\Services\GetFruitsToSellService;
 use App\Application\UseCases\Basket\ValidateBasketHandler;
 use App\Application\ValueObjects\BasketElement;
 use App\Application\ValueObjects\FruitReference;
@@ -50,7 +49,7 @@ class ValidateBasketTest extends TestCase
         //given
         $basket = $this->buildBasketSUT();
         $command = new ValidateBasketCommand(
-            basketId:             $basket->id()->value(),
+            basketId:       $basket->id()->value(),
             paymentMethod:  PaymentMethod::VISA->value,
             currency:       Currency::DOLLAR->value
         );
@@ -61,9 +60,9 @@ class ValidateBasketTest extends TestCase
         //then
         $this->assertTrue( $response->isValidated );
         $this->assertNotNull( $response->orderId );
+        $this->assertNotNull( $response->orderStatus );
         $this->assertEmpty($basket->basketElements());
         $this->assertEquals(BasketStatus::IS_DESTROYED, $basket->status());
-        $this->assertEquals( $response->isValidated, $basket->status()->value );
     }
 
     /**
@@ -75,7 +74,7 @@ class ValidateBasketTest extends TestCase
         //given
         $incorrectId = 'somethingWrong';
         $command = new ValidateBasketCommand(
-            basketId:             $incorrectId,
+            basketId:       $incorrectId,
             paymentMethod:  PaymentMethod::VISA->value,
             currency:       Currency::DOLLAR->value
         );
@@ -155,7 +154,7 @@ class ValidateBasketTest extends TestCase
         //given
         $basket = $this->buildBasketSUT();
 
-        $newElement = new BasketElement( reference: new FruitReference('Ref02',2000) );
+        $newElement = new BasketElement( reference: new FruitReference('Ref02') );
         $newElement->quantity = new Quantity(10);
         $basket->addElementToBasket($newElement);
         $command = new ValidateBasketCommand(
@@ -199,29 +198,127 @@ class ValidateBasketTest extends TestCase
      * @throws NotFoundBasketException
      * @throws NotFountElementInBasketException
      */
-    public function test_can_apply_discount_on_basket()
+    public function test_can_apply_discount_on_the_first_element_of_the_basket()
     {
-        $basket = $this->buildBasketSUT();
-        $initialAmount = $basket->totalCost();
+        $element = new BasketElement(new FruitReference('Ref03'));
+        $element->quantity = new Quantity(10);
+        $basket = Basket::create($element, BasketAction::ADD_TO_BASKET);
+        $this->basketRepository->save($basket);
         $command = new ValidateBasketCommand(
             basketId:$basket->id()->value(),
-            paymentMethod: PaymentMethod::MASTERCARD->value,currency: Currency::DOLLAR->value
+            paymentMethod: PaymentMethod::MASTERCARD->value,
+            currency: Currency::DOLLAR->value
         );
 
         // When
         $response = $this->validateBasket($command);
-        $finalAmount = $response->finalAmount;
+        $finalAmount = $response->finalCost;
 
         //Then
         $this->assertTrue( $response->isValidated );
         $this->assertNotNull( $response->orderId );
+        $this->assertEquals( 3000, $response->discount );
+        $this->assertEquals( 3000, $response->discount );
         $this->assertEmpty($basket->basketElements());
-        $this->assertGreaterThan($finalAmount, $initialAmount);
         $this->assertGreaterThan(0,$finalAmount);
         $this->assertEquals( $response->isValidated, $basket->status()->value );
     }
 
 
+    /**
+     * @throws NotFoundBasketException
+     * @throws NotFountElementInBasketException
+     */
+    public function test_can_apply_ten_per_cent_discount_on_the_basket()
+    {
+        $basket = $this->buildBasketSUT();
+        $basket->reverseElementsOrder();
+        $command = new ValidateBasketCommand(
+            basketId:$basket->id()->value(),
+            paymentMethod: PaymentMethod::MASTERCARD->value,
+            currency: Currency::DOLLAR->value
+        );
+
+        // When
+        $response = $this->validateBasket($command);
+        $finalAmount = $response->finalCost;
+
+        //Then
+        $discountOnThisBasket = 4100;
+        $this->assertTrue( $response->isValidated );
+        $this->assertNotNull( $response->orderId );
+        $this->assertEquals( $discountOnThisBasket, $response->discount );
+        $this->assertEmpty($basket->basketElements());
+        $this->assertGreaterThan(0,$finalAmount);
+        $this->assertEquals( $response->isValidated, $basket->status()->value );
+    }
+
+    /**
+     * @throws NotFoundBasketException
+     * @throws NotFountElementInBasketException
+     */
+    public function test_can_apply_fifteen_per_cent_discount_on_the_basket()
+    {
+        $element = new BasketElement(new FruitReference('Ref01'));
+        $element->quantity = new Quantity(5);
+
+        $basket = $this->buildBasketSUT();
+        $basket->addElementToBasket($element);
+        $basket->reverseElementsOrder();
+        $this->basketRepository->save($basket);
+
+        $command = new ValidateBasketCommand(
+            basketId:$basket->id()->value(),
+            paymentMethod: PaymentMethod::MASTERCARD->value,
+            currency: Currency::DOLLAR->value
+        );
+
+        // When
+        $response = $this->validateBasket($command);
+        $finalAmount = $response->finalCost;
+
+        //Then
+        $discountAmount = 6900;
+        $this->assertTrue( $response->isValidated );
+        $this->assertNotNull( $response->orderId );
+        $this->assertEquals( $discountAmount, $response->discount );
+        $this->assertEmpty($basket->basketElements());
+        $this->assertGreaterThan(0,$finalAmount);
+        $this->assertEquals( $response->isValidated, $basket->status()->value );
+    }
+
+    /**
+     * @throws NotFoundBasketException
+     * @throws NotFountElementInBasketException
+     */
+    public function test_can_apply_discount_on_the_basket_and_on_his_first_element()
+    {
+        $element = new BasketElement(new FruitReference('Ref01'));
+        $element->quantity = new Quantity(5);
+
+        $basket = $this->buildBasketSUT();
+        $basket->addElementToBasket($element);
+        $this->basketRepository->save($basket);
+
+        $command = new ValidateBasketCommand(
+            basketId:$basket->id()->value(),
+            paymentMethod: PaymentMethod::MASTERCARD->value,
+            currency: Currency::DOLLAR->value
+        );
+
+        // When
+        $response = $this->validateBasket($command);
+        $finalAmount = $response->finalCost;
+
+        //Then
+        $discountAmount = 10200;
+        $this->assertTrue( $response->isValidated );
+        $this->assertNotNull( $response->orderId );
+        $this->assertEquals( $discountAmount, $response->discount );
+        $this->assertEmpty($basket->basketElements());
+        $this->assertNotNull($finalAmount);
+        $this->assertEquals( $response->isValidated, $basket->status()->value );
+    }
 
     /**
      * @param ValidateBasketCommand $command
@@ -233,7 +330,7 @@ class ValidateBasketTest extends TestCase
         $handler = new ValidateBasketHandler(
             $this->basketRepository,
             $this->fruitRepository,
-            new GetFruitsToSoldService($this->fruitRepository)
+            new GetFruitsToSellService($this->fruitRepository)
         );
 
          return $handler->handle($command);
@@ -245,14 +342,14 @@ class ValidateBasketTest extends TestCase
      */
     public function buildBasketSUT(): Basket
     {
-        $element1 = new BasketElement( reference: new FruitReference('Ref01',1000) );
-        $element1->quantity = new Quantity(3);
+        $element1 = new BasketElement( reference: new FruitReference('Ref03') );
+        $element1->quantity = new Quantity(11);
         $basket = Basket::create(
             $element1,
             BasketAction::ADD_TO_BASKET
         );
 
-        $element2 = new BasketElement( reference: new FruitReference('Ref02',2000) );
+        $element2 = new BasketElement( reference: new FruitReference('Ref02') );
         $element2->quantity = new Quantity(4);
         $basket->addElementToBasket($element2);
 

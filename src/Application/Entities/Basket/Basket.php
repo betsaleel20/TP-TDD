@@ -47,8 +47,8 @@ class Basket
         ?Basket       $existingBasket = null
     ): self
     {
-        if($action === BasketAction::REMOVE_FROM_BASKET && !$existingBasket){
-            throw new NotFoundBasketException("Vous ne pouvez pas retirer un element dans un panier inexistant");
+        if($action !== BasketAction::ADD_TO_BASKET && !$existingBasket){
+            throw new NotFoundBasketException('Vous ne pouvez pas manipuler les elements d\'un panier inexistant!');
         }
         if(!$existingBasket){
             $basket = new self(new Id(time()));
@@ -101,18 +101,12 @@ class Basket
      */
     public function updateBasket( BasketElement $basketElement, BasketAction  $action ): void
     {
-        $state = $this->checkIfElementExistence($basketElement->reference());
-        if(!$state){
-            if($action !== BasketAction::ADD_TO_BASKET ){
-                throw new NotFountElementInBasketException(
-                    'L\'element que vous souhaitez manipuler la qunatité n\'existe pas dans votre panier'
-                );
-            }
+        $existingElement = $this->findOneElement($basketElement->reference());
+        if(!$existingElement){
+            $this->throwNotFountElementInBasketExceptionIfActionIsNotAddToBasket($action);
             $this->addElementToBasket($basketElement);
             return;
         }
-
-        $existingElement = $this->findOneElement($basketElement->reference());
 
         if($action === BasketAction::DECREASE_QUANTITY){
             if($existingElement->quantity()->value() < $basketElement->quantity()->value()){
@@ -121,7 +115,7 @@ class Basket
                     Vous ne pouvez en retirer plus que ca !');
             }
             $existingElement->decreaseQuantity($basketElement->quantity()->value());
-            $this->addElementToBasket($existingElement);
+            $existingElement->quantity()->value() > 0 ? $this->addElementToBasket($existingElement) : $this->removeElementFromBasket($basketElement->reference());
             return;
         }
 
@@ -146,6 +140,7 @@ class Basket
     {
         $this->status = $status;
     }
+
 
     /**
      * @param FruitReference $reference
@@ -180,17 +175,23 @@ class Basket
         $this->basketElements = [];
     }
 
-    /**
-     * @return float
-     */
-    public function totalCost():float
+    public function reverseElementsOrder():void
     {
-        $amount = 0.0;
-        $basketElements = $this->basketElements;
-        foreach ($basketElements as $basketElement) {
-            $amount= $amount + $basketElement->calculateAmount();
+        $this->basketElements = array_reverse($this->basketElements);
+    }
+
+    /**
+     * @param BasketAction $action
+     * @return void
+     * @throws NotFountElementInBasketException
+     */
+    private function throwNotFountElementInBasketExceptionIfActionIsNotAddToBasket(BasketAction $action): void
+    {
+        if ($action !== BasketAction::ADD_TO_BASKET) {
+            throw new NotFountElementInBasketException(
+                'L\'element que vous souhaitez manipuler la qunatité n\'existe pas dans votre panier'
+            );
         }
-        return $amount;
     }
 
 }

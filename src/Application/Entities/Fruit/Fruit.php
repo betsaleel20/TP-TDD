@@ -10,17 +10,18 @@ use App\Application\ValueObjects\Quantity;
 class Fruit
 {
 
-    private FruitStatus $status = FruitStatus::AVAILABLE;
+    private FruitStatus $status ;
 
     /**
      * @param Id $id
      * @param FruitReference $reference
      */
     public function __construct(
-        private Id             $id,
-        private FruitReference $reference
+        private readonly Id    $id,
+        private readonly FruitReference $reference
     )
     {
+        $this->status = FruitStatus::AVAILABLE;
     }
 
     public static function create(Id $id, FruitReference $reference): self

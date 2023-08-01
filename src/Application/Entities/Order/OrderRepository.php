@@ -2,7 +2,7 @@
 
 namespace App\Application\Entities\Order;
 
-class OrderRepository
+interface OrderRepository
 {
-
+    public function save(Order $order);
 }

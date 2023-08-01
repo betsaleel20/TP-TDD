@@ -7,7 +7,7 @@ use App\Application\Entities\Fruit\FruitRepository;
 use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Quantity;
 
-readonly class GetFruitsToSoldService
+readonly class GetFruitsToSellService
 {
 
     /**
@@ -19,16 +19,17 @@ readonly class GetFruitsToSoldService
 
     /**
      * @param FruitReference $fruitRef
-     * @param Quantity $numberOfFruitToRemove
+     * @param Quantity $numberOfFruitToRetrieve
      * @return Fruit[]
      */
-    public function execute(FruitReference $fruitRef, Quantity $numberOfFruitToRemove ):array
+    public function execute(FruitReference $fruitRef, Quantity $numberOfFruitToRetrieve ):array
     {
         $availableFruits =  $this->fruitRepository->allByReference($fruitRef);
+
         return array_slice(
             $availableFruits,
             0,
-            $numberOfFruitToRemove->value()
+            $numberOfFruitToRetrieve->value()
         );
     }
 }
