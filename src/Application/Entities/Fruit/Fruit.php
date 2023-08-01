@@ -9,23 +9,23 @@ use App\Application\ValueObjects\Quantity;
 
 class Fruit
 {
-
-    private FruitStatus $status = FruitStatus::AVAILABLE;
-
     /**
      * @param Id $id
      * @param FruitReference $reference
+     * @param FruitStatus $status
      */
-    public function __construct(
-        private Id             $id,
-        private FruitReference $reference
+    private function __construct(
+        private readonly Id    $id,
+        private readonly FruitReference $reference,
+        private FruitStatus $status
     )
     {
     }
 
-    public static function create(Id $id, FruitReference $reference): self
+    public static function create(Id $id, FruitReference $reference, ?FruitStatus $status): self
     {
-        return new self($id, $reference);
+        isset($status) ? : $status = FruitStatus::AVAILABLE;
+        return new self($id, $reference,$status);
     }
 
     /**

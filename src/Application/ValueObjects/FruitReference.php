@@ -7,13 +7,13 @@ use App\Application\Exceptions\InvalidCommandException;
 readonly class FruitReference
 {
 
-    private float $price;
+    private ?float $price;
 
     /**
      * @param string $reference
-     * @param float $price
+     * @param float|null $price
      */
-    public function __construct(private string $reference, float $price = 1000.0)
+    public function __construct(private string $reference, ?float $price = null )
     {
         $this->price = $price;
         $this->validate();
@@ -25,11 +25,14 @@ readonly class FruitReference
      */
     private function validate(): void
     {
-        if($this->price <=0){
-            throw new InvalidCommandException("Le prix doit etre supérieur à zéro !");
-        }
         if ( !$this->reference ) {
             throw new InvalidCommandException("La référence est invalide !");
+        }
+        if(!$this->price){
+            return;
+        }
+        if($this->price <=0){
+            throw new InvalidCommandException("Le prix doit etre supérieur à zéro !");
         }
     }
 
@@ -46,7 +49,7 @@ readonly class FruitReference
      */
     public function price():float
     {
-        return $this->price;
+        return $this->price ?? 0.0;
     }
 
 }

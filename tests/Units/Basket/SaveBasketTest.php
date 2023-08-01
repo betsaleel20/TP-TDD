@@ -173,7 +173,7 @@ class SaveBasketTest extends TestCase
         $command = SaveBasketCommand::create(
             fruitRef: $newReference,
             action: BasketAction::ADD_TO_BASKET->value,
-            neededQuantity: 7
+            neededQuantity: 18
         );
         $command->basketId = $existingBasket->id()->value();
 
@@ -303,6 +303,32 @@ class SaveBasketTest extends TestCase
      * @throws NotFoundBasketException
      * @throws NotFountElementInBasketException
      */
+    public function test_can_delete_element_from_basket_quantity_reach_zero_when_decreasing_quantity(){
+        //Given
+        $existingBasket = $this->buildBasketSUT();
+        $reference = array_key_last($existingBasket->basketElements());
+        $quantityToRemove = $existingBasket->basketElements()[$reference ]['quantity'];
+        $command = SaveBasketCommand::create(
+            fruitRef: $reference,
+            action: BasketAction::DECREASE_QUANTITY->value,
+            neededQuantity: $quantityToRemove
+        );
+        $command->basketId = $existingBasket->id()->value();
+
+        //When
+        $response = $this->saveBasket($command);
+
+        //Then
+        $this->assertTrue($response->isSaved);
+        $this->assertEquals($command->basketId, $response->basketId);
+        $this->assertEquals(BasketStatus::IS_SAVED->value, $response->basketStatus);
+    }
+
+
+    /**
+     * @throws NotFoundBasketException
+     * @throws NotFountElementInBasketException
+     */
     public function test_can_throw_not_allowed_quantity_to_remove_exception_when_decreasing_needed_quantity(){
         //Given
         $existingBasket = $this->buildBasketSUT();
@@ -339,6 +365,28 @@ class SaveBasketTest extends TestCase
 
         //When && Then
         $this->expectException(NotFountElementInBasketException::class);
+        $this->saveBasket($command);
+    }
+
+
+    /**
+     * @return void
+     * @throws NotFoundBasketException
+     * @throws NotFountElementInBasketException
+     */
+    public function test_can_throw_not_not_found_basket_exception_when_trying_to_update_basket(){
+        //Given
+        $existingBasket = $this->buildBasketSUT();
+        $reference = array_key_last($existingBasket->basketElements());
+        $action = rand(BasketAction::REMOVE_FROM_BASKET->value, BasketAction::DECREASE_QUANTITY->value);
+        $command = SaveBasketCommand::create(
+            fruitRef: $reference,
+            action: $action,
+            neededQuantity: 2
+        );
+
+        //When && Then
+        $this->expectException(NotFoundBasketException::class);
         $this->saveBasket($command);
     }
 

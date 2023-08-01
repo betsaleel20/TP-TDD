@@ -6,5 +6,7 @@ class ValidateBasketResponse
 {
     public bool $isValidated = false;
     public ?string $orderId = null;
-    public float $finalAmount = 0.0;
+    public ?int $orderStatus = null;
+    public float $discount = 0.0;
+    public float $finalCost = 0.0;
 }

@@ -19,6 +19,11 @@ interface FruitRepository
      */
     public function allByReference(FruitReference $reference):?array ;
 
-    public function save(Fruit $fruit);
+    /**
+     * @param Fruit $fruit
+     */
+    public function save(Fruit $fruit):void;
+
+    public function all();
 
 }

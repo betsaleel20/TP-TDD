@@ -42,12 +42,4 @@ class BasketElement
     {
         $this->changeQuantity($this->quantity->value() - $quantity);
     }
-
-    /**
-     * @return float
-     */
-    public function calculateAmount():float
-    {
-        return $this->reference()->price() * $this->quantity()->value();
-    }
 }
