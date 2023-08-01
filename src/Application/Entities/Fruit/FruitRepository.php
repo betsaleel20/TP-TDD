@@ -24,4 +24,6 @@ interface FruitRepository
      */
     public function save(Fruit $fruit):void;
 
+    public function all();
+
 }

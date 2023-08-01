@@ -18,7 +18,7 @@ use App\Application\Exceptions\NotFoundBasketException;
 use App\Application\Exceptions\NotFoundFruitReferenceException;
 use App\Application\Exceptions\UnavailableFruitQuantityException;
 use App\Application\Responses\ValidateBasketResponse;
-use App\Application\Services\GetFruitsToSellService;
+use App\Application\Services\GetFruitsToSaleService;
 use App\Application\ValueObjects\BasketElement;
 use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Id;
@@ -33,12 +33,12 @@ readonly class ValidateBasketHandler
     /**
      * @param BasketRepository $basketRepository
      * @param FruitRepository $fruitRepository
-     * @param GetFruitsToSellService $fruitsToSaleInMemory
+     * @param GetFruitsToSaleService $fruitsToSaleInMemory
      */
     public function __construct(
         private BasketRepository                                 $basketRepository,
         private FruitRepository                                  $fruitRepository,
-        private GetFruitsToSellService $fruitsToSaleInMemory
+        private GetFruitsToSaleService $fruitsToSaleInMemory
     )
     {
         $this->orderRepository = new InMemoryOrderRepository();
@@ -128,7 +128,7 @@ readonly class ValidateBasketHandler
     }
 
     /**
-     * @param array $basketElements
+     * @param BasketElement[] $basketElements
      * @return Fruit[]
      */
     private function getFruitsForSaleOrThrowExceptions(array $basketElements): array

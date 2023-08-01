@@ -17,7 +17,7 @@ use App\Application\Exceptions\NotFoundFruitReferenceException;
 use App\Application\Exceptions\NotFountElementInBasketException;
 use App\Application\Exceptions\UnavailableFruitQuantityException;
 use App\Application\Responses\ValidateBasketResponse;
-use App\Application\Services\GetFruitsToSellService;
+use App\Application\Services\GetFruitsToSaleService;
 use App\Application\UseCases\Basket\ValidateBasketHandler;
 use App\Application\ValueObjects\BasketElement;
 use App\Application\ValueObjects\FruitReference;
@@ -330,7 +330,7 @@ class ValidateBasketTest extends TestCase
         $handler = new ValidateBasketHandler(
             $this->basketRepository,
             $this->fruitRepository,
-            new GetFruitsToSellService($this->fruitRepository)
+            new GetFruitsToSaleService($this->fruitRepository)
         );
 
          return $handler->handle($command);

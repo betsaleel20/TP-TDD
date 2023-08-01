@@ -2,7 +2,8 @@
 
 namespace App\Application\Exceptions;
 
-use mysql_xdevapi\Exception;
+
+use PHPUnit\Framework\Exception;
 
 class InvalidStatusException extends Exception
 {

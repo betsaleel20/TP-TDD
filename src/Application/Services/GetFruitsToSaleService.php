@@ -7,7 +7,7 @@ use App\Application\Entities\Fruit\FruitRepository;
 use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Quantity;
 
-readonly class GetFruitsToSellService
+readonly class GetFruitsToSaleService
 {
 
     /**
