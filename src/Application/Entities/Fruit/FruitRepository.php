@@ -12,7 +12,6 @@ interface FruitRepository
      */
     public function byReference(FruitReference $fruitRef): ?Fruit;
 
-
     /**
      * @param FruitReference $reference
      * @return Fruit[]|null
@@ -24,6 +23,15 @@ interface FruitRepository
      */
     public function save(Fruit $fruit):void;
 
-    public function all();
+    /**
+     * @return Fruit[]
+     */
+    public function all(): array;
+
+    /**
+     * @param Fruit[] $soldFruits
+     * @return void
+     */
+    public function saveMany(array $soldFruits):void;
 
 }

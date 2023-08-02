@@ -13,7 +13,7 @@ use App\Application\Exceptions\NotAllowedQuantityToRemove;
 use App\Application\Exceptions\NotFoundBasketException;
 use App\Application\Exceptions\NotFoundFruitReferenceException;
 use App\Application\Exceptions\NotFountElementInBasketException;
-use App\Application\Exceptions\UnavailableFruitQuantityException;
+use App\Application\Exceptions\FruitsOutOfStockException;
 use App\Application\Responses\SaveBasketResponse;
 use App\Application\Services\GetFruitByReferenceService;
 use App\Application\Services\VerifyIfThereIsEnoughFruitInStockService;
@@ -178,7 +178,7 @@ class SaveBasketTest extends TestCase
         $command->basketId = $existingBasket->id()->value();
 
         //When & Then
-        $this->expectException(UnavailableFruitQuantityException::class);
+        $this->expectException(FruitsOutOfStockException::class);
         $this->saveBasket($command);
     }
 
@@ -246,7 +246,7 @@ class SaveBasketTest extends TestCase
         $command->basketId = $existingBasket->id()->value();
 
         //When && Then
-        $this->expectException(UnavailableFruitQuantityException::class);
+        $this->expectException(FruitsOutOfStockException::class);
         $this->saveBasket($command);
     }
 

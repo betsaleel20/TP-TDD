@@ -99,7 +99,7 @@ class Order
     /**
      * @return float
      */
-    private function calculateTotalCost():float
+    public function calculateTotalCost():float
     {
         $totalCost = 0.0;
         $fruits = $this->soldFruits;

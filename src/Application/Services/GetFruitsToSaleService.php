@@ -25,7 +25,6 @@ readonly class GetFruitsToSaleService
     public function execute(FruitReference $fruitRef, Quantity $numberOfFruitToRetrieve ):array
     {
         $availableFruits =  $this->fruitRepository->allByReference($fruitRef);
-
         return array_slice(
             $availableFruits,
             0,

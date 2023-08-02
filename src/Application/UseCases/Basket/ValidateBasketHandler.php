@@ -16,7 +16,7 @@ use App\Application\Enums\PaymentMethod;
 use App\Application\Exceptions\EmptyBasketException;
 use App\Application\Exceptions\NotFoundBasketException;
 use App\Application\Exceptions\NotFoundFruitReferenceException;
-use App\Application\Exceptions\UnavailableFruitQuantityException;
+use App\Application\Exceptions\FruitsOutOfStockException;
 use App\Application\Responses\ValidateBasketResponse;
 use App\Application\Services\GetFruitsToSaleService;
 use App\Application\ValueObjects\BasketElement;
@@ -27,21 +27,19 @@ use App\Persistence\Repositories\Order\InMemoryOrderRepository;
 
 readonly class ValidateBasketHandler
 {
-
-    private OrderRepository $orderRepository;
-
     /**
      * @param BasketRepository $basketRepository
      * @param FruitRepository $fruitRepository
-     * @param GetFruitsToSaleService $fruitsToSaleInMemory
+     * @param GetFruitsToSaleService $getFruitsToSaleInMemory
+     * @param OrderRepository $orderRepository
      */
     public function __construct(
         private BasketRepository                                 $basketRepository,
         private FruitRepository                                  $fruitRepository,
-        private GetFruitsToSaleService $fruitsToSaleInMemory
+        private OrderRepository $orderRepository,
+        private GetFruitsToSaleService $getFruitsToSaleInMemory,
     )
     {
-        $this->orderRepository = new InMemoryOrderRepository();
     }
 
     /**
@@ -53,17 +51,20 @@ readonly class ValidateBasketHandler
 
         $basket = $this->retrieveBasketOrThrowNotFoundException(new Id( $command->basketId ));
         $basketElements = $this->getBasketElementsOrThrowEmptyBasketException($basket);
-        $fruitsForSale = $this->getFruitsForSaleOrThrowExceptions($basketElements);
 
-        $this->markFruitsAsSold($fruitsForSale);
+        $this->verifyIfReferenceStillExistOrThrowNotFoundFruitReferenceException( $basketElements );
+        $this->checkIfThereIsEnoughFruitInStockOrThrowUnavailableFruitQuantityException( $basketElements );
+        $fruitsForSale = $this->getFruitsForSaleOrThrowFruitsOutOfStockException($basketElements);
+
         $order = Order::create(
             fruitsToSale: $fruitsForSale,
             paymentMethod:  PaymentMethod::in($command->paymentMethod),
             currency: Currency::in($command->currency)
         );
+        $this->orderRepository->save($order);
+        $this->markFruitsAsSold($fruitsForSale);
         $this->applyDiscountOnTheFirstElementOfBasket($order, $basketElements);
         $this->applyDiscountOnTheBasket($order, $basket);
-
 
         $basket->makeBasketEmpty();
         $basket->changeStatus(BasketStatus::IS_DESTROYED);
@@ -77,18 +78,18 @@ readonly class ValidateBasketHandler
 
     /**
      * @param BasketElement[] $elementsAddedToBasket
-     * @param array $availableFruitsInMemory
      * @return void
      */
     private function checkIfThereIsEnoughFruitInStockOrThrowUnavailableFruitQuantityException(
-        array $elementsAddedToBasket,
-        array $availableFruitsInMemory
+        array $elementsAddedToBasket
     ):void
     {
         $messages = null;
-        $references = array_keys($elementsAddedToBasket);
+        $availableFruitsInMemory = $this->fruitRepository->all();
+        $givenReferences = array_keys($elementsAddedToBasket);
         $minimalStockQuantity = 5;
-        foreach ($references as $reference){
+
+        foreach ($givenReferences as $reference){
             $availableFruits = array_filter(
                 $availableFruitsInMemory,
                 fn(Fruit $f)=>$f->reference()->referenceValue() === $reference
@@ -99,62 +100,45 @@ readonly class ValidateBasketHandler
                 $messages .= '[La quatité de fruit disponibles pour la référence <'.$reference.'> est insuffisante] | ';
             }
         }
-        if($messages){
-            throw new UnavailableFruitQuantityException($messages);
-        }
+
+        is_null($messages) ? : throw new FruitsOutOfStockException($messages);
     }
 
     /**
-     * @param array $givenReferences
+     * @param array $basketElements
      * @param array $existingReferencesInMemory
      * @return void
      */
-    private function verifyIfReferenceStillExistOrThrowNotFoundFruitReferenceException(
-        array $givenReferences,
-        array $existingReferencesInMemory
-    ):void
+    private function verifyIfReferenceStillExistOrThrowNotFoundFruitReferenceException( array $basketElements ):void
     {
         $messages = null;
+        $givenReferences = array_keys($basketElements);
         foreach ($givenReferences as $givenReference){
-            $state = in_array($givenReference, $existingReferencesInMemory);
-            if(!$state)
-            {
-                $messages .= '[Les produits de la référence <'.$givenReference.'> n\'existe plus dans le systeme ] | ';
-            }
+            $state = $this->fruitRepository->byReference(new FruitReference($givenReference));
+            !is_null($state) ? : $messages .= '[Les produits de la référence <'.$givenReference.'> sont indisponibles] | ';
         }
-        if($messages){
-            throw new NotFoundFruitReferenceException($messages);
-        }
+        is_null($messages) ? : throw new NotFoundFruitReferenceException($messages);
     }
 
     /**
      * @param BasketElement[] $basketElements
      * @return Fruit[]
      */
-    private function getFruitsForSaleOrThrowExceptions(array $basketElements): array
+    private function getFruitsForSaleOrThrowFruitsOutOfStockException(array $basketElements): array
     {
         $availableFruitsInMemory = $this->fruitRepository->all();
         if(count($availableFruitsInMemory) === 0) {
-            throw new UnavailableFruitQuantityException('Il n\'existe plus de fruits en vente sur ce site. Veuillez re-ésssayer plus tard');
+            throw new FruitsOutOfStockException('Les fruits sont en rupture de stock dans nos magasins');
         }
 
-        $referencesInMemory = $this->getAllReferences($availableFruitsInMemory);
-
         $givenReferences = array_keys($basketElements);
-        $this->verifyIfReferenceStillExistOrThrowNotFoundFruitReferenceException(
-            $givenReferences,
-            $referencesInMemory
-        );
-        $this->checkIfThereIsEnoughFruitInStockOrThrowUnavailableFruitQuantityException( $basketElements, $availableFruitsInMemory );
-
         $fruits = [];
         foreach ($givenReferences as $givenReference)
         {
-            $fruitsByReference = $this->fruitsToSaleInMemory->execute(
+            $fruitsByReference = $this->getFruitsToSaleInMemory->execute(
                new FruitReference($givenReference),
                new Quantity( $basketElements[$givenReference]['quantity'] )
             );
-
             $fruits = array_merge($fruits, $fruitsByReference);
         }
         return $fruits;
@@ -229,53 +213,16 @@ readonly class ValidateBasketHandler
     }
 
     /**
-     * @param Fruit[] $availableFruitsInMemory
-     * @return array
-     */
-    private function getAllReferences(array $availableFruitsInMemory):array
-    {
-        $fruitOfEachReference = $this->getOneFruitOfEachReference($availableFruitsInMemory);
-        return $this->retrieveReferences($fruitOfEachReference);
-    }
-
-    /**
-     * @param Fruit[] $availableFruitsInMemory
-     * @return array
-     */
-    private function getOneFruitOfEachReference(array $availableFruitsInMemory):array
-    {
-        $firstIndex = array_key_first($availableFruitsInMemory);
-        $fruitOfEachReference = array_values(array_filter(
-            $availableFruitsInMemory,
-            fn(Fruit $f) => $f->reference()->referenceValue() !== $availableFruitsInMemory[$firstIndex]->reference()->referenceValue()
-        ));
-        $fruitOfEachReference[] = $availableFruitsInMemory[$firstIndex];
-        return $fruitOfEachReference;
-    }
-
-    /**
-     * @param Fruit[] $fruitOfEachReference
-     * @return array
-     */
-    private function retrieveReferences(array $fruitOfEachReference):array
-    {
-        $references = [];
-        foreach ($fruitOfEachReference as $fruit) {
-            $references[] = $fruit->reference()->referenceValue();
-        }
-        return $references;
-    }
-
-    /**
      * @param Fruit[] $soldFruits
      * @return void
      */
     private function markFruitsAsSold(array $soldFruits):void
     {
-        foreach ($soldFruits as $soldFruit) {
+        foreach ($soldFruits as $index => $soldFruit) {
             $soldFruit->changeStatus(FruitStatus::SOLD);
-            $this->fruitRepository->save($soldFruit);
+            $soldFruits[$index] = $soldFruit;
         }
+        $this->fruitRepository->saveMany($soldFruits);
     }
 
 

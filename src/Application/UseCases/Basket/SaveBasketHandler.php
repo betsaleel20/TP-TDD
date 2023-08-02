@@ -10,7 +10,7 @@ use App\Application\Exceptions\NotAllowedQuantityToRemove;
 use App\Application\Exceptions\NotFoundBasketException;
 use App\Application\Exceptions\NotFoundFruitReferenceException;
 use App\Application\Exceptions\NotFountElementInBasketException;
-use App\Application\Exceptions\UnavailableFruitQuantityException;
+use App\Application\Exceptions\FruitsOutOfStockException;
 use App\Application\Responses\SaveBasketResponse;
 use App\Application\Services\GetFruitByReferenceService;
 use App\Application\Services\VerifyIfThereIsEnoughFruitInStockService;
@@ -148,7 +148,7 @@ readonly class SaveBasketHandler
         $state = $this->verifyIfThereIsEnoughFruitInStock->execute( $fruitReference, $neededQuantity );
 
         if (!$state) {
-            throw new UnavailableFruitQuantityException(
+            throw new FruitsOutOfStockException(
                 'Vous ne pouvez pas commander jusqu\'à ' . $neededQuantity->value() . ' fruits de la reference <' .
                 $fruitReference->referenceValue() . '>'
             );

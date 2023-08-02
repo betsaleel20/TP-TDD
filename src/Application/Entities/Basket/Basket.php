@@ -2,10 +2,8 @@
 
 namespace App\Application\Entities\Basket;
 
-use App\Application\Enums\Currency;
 use App\Application\Enums\BasketAction;
 use App\Application\Enums\BasketStatus;
-use App\Application\Enums\PaymentMethod;
 use App\Application\Exceptions\NotAllowedQuantityToRemove;
 use App\Application\Exceptions\NotFoundBasketException;
 use App\Application\Exceptions\NotFountElementInBasketException;
@@ -13,7 +11,6 @@ use App\Application\ValueObjects\FruitReference;
 use App\Application\ValueObjects\Id;
 use App\Application\ValueObjects\BasketElement;
 use App\Application\ValueObjects\Quantity;
-use App\Persistence\Repositories\Fruit\InMemoryFruitRepository;
 
 class Basket
 {
@@ -109,13 +106,13 @@ class Basket
         }
 
         if($action === BasketAction::DECREASE_QUANTITY){
-            if($existingElement->quantity()->value() < $basketElement->quantity()->value()){
+            $existingQuantity = $existingElement->quantity()->value();
+            if($existingQuantity < $basketElement->quantity()->value()){
                 throw new NotAllowedQuantityToRemove(
-                    'Vous n\'avez que <'. $existingElement->quantity()->value().'> fruits dans votre panier.
-                    Vous ne pouvez en retirer plus que ca !');
+                    'Vous ne pouvez pasm retirer plus de <'. $existingQuantity.'> fruits dans votre panier!');
             }
             $existingElement->decreaseQuantity($basketElement->quantity()->value());
-            $existingElement->quantity()->value() > 0 ? $this->addElementToBasket($existingElement) : $this->removeElementFromBasket($basketElement->reference());
+            $existingQuantity > 0 ? $this->addElementToBasket($existingElement) : $this->removeElementFromBasket($basketElement->reference());
             return;
         }
 
@@ -141,16 +138,6 @@ class Basket
         $this->status = $status;
     }
 
-
-    /**
-     * @param FruitReference $reference
-     * @return bool
-     */
-    private function checkIfElementExistence(FruitReference $reference): bool
-    {
-        return array_key_exists($reference->referenceValue(), $this->basketElements);
-    }
-
     /**
      * @param FruitReference $elementReference
      * @return BasketElement|null
@@ -160,9 +147,9 @@ class Basket
         $keyExist = array_key_exists($elementReference->referenceValue(), $this->basketElements);
         if($keyExist){
             $foundElement = $this->basketElements[$elementReference->referenceValue()];
-            $asValueObject = new BasketElement($elementReference);
-            $asValueObject->quantity = new Quantity($foundElement['quantity']);
-            return $asValueObject ;
+            $asObject = new BasketElement($elementReference);
+            $asObject->quantity = new Quantity($foundElement['quantity']);
+            return $asObject ;
         }
         return null ;
     }

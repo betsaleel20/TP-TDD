@@ -2,8 +2,6 @@
 
 namespace App\Application\Commands;
 
-use App\Application\ValueObjects\Id;
-
 class ValidateBasketCommand
 {
     /**

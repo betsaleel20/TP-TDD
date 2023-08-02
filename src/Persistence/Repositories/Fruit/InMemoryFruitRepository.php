@@ -139,7 +139,7 @@ class InMemoryFruitRepository implements FruitRepository
     {
         $result = array_filter(
             $this->fruits,
-            fn($f) => $f['reference'] === $fruitRef->referenceValue()
+            fn($f) => $f['reference'] === $fruitRef->referenceValue() && $f['status'] === FruitStatus::AVAILABLE->value
         );
         if(!$result){
             return null;
@@ -206,5 +206,12 @@ class InMemoryFruitRepository implements FruitRepository
             }
         }
         return $asFruitObject;
+    }
+
+    public function saveMany(array $soldFruits): void
+    {
+        foreach ($soldFruits as $soldFruit) {
+            $this->save($soldFruit);
+        }
     }
 }
